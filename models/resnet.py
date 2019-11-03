@@ -6,6 +6,8 @@ from keras.initializers import normal, constant, zeros
 import keras.backend as K
 import tensorflow as tf
 
+from losses import loss
+
 
 def nms(heat, kernel=3):
     hmax = tf.nn.max_pool2d(heat, (kernel, kernel), strides=1, padding='SAME')
@@ -55,9 +57,16 @@ def decode(hm, wh, reg, max_objects=100):
     return detections
 
 
-def centernet(num_classes, backbone='resnet18'):
+def centernet(num_classes, backbone='resnet18', input_size=512, max_objects=100):
     assert backbone in ['resnet18', 'resnet34', 'resnet50']
-    image_input = Input(shape=(512, 512, 3))
+    output_size = input_size // 4
+    image_input = Input(shape=(None, None, 3))
+    hm_input = Input(shape=(output_size, output_size, 3))
+    wh_input = Input(shape=(max_objects, 2))
+    reg_input = Input(shape=(max_objects, 2))
+    reg_mask_input = Input(shape=(max_objects,))
+    index_input = Input(shape=(max_objects,))
+
     if backbone == 'resnet18':
         resnet = ResNet18(image_input, include_top=False, freeze_bn=True)
     elif backbone == 'resnet34':
@@ -91,10 +100,11 @@ def centernet(num_classes, backbone='resnet18'):
     y3 = ReLU()(y3)
     y3 = Conv2D(2, 1, kernel_initializer=normal(0, 0.001))(y3)
 
-    model = Model(inputs=image_input, outputs=[y1, y2, y3])
+    loss_ = loss(y1, y2, y3, hm_input, wh_input, reg_input, reg_mask_input, index_input)
+    model = Model(inputs=[image_input], outputs=[y1, y2, y3])
 
     # detections = decode(y1, y2, y3)
-    detections = Lambda(lambda x: decode(*x))([y1, y2, y3])
+    detections = Lambda(lambda x: decode(*x, max_objects=max_objects))([y1, y2, y3])
     prediction_model = Model(inputs=image_input, outputs=detections)
     return model, prediction_model
 
@@ -113,5 +123,3 @@ if __name__ == '__main__':
     # print(tf_dets[0, :5])
     # dets = np.load('/home/adam/workspace/github/xuannianz/CenterNet/dets.npy')
     # print(dets[0, :5])
-
-    pass
