@@ -57,11 +57,11 @@ def decode(hm, wh, reg, max_objects=100):
     return detections
 
 
-def centernet(num_classes, backbone='resnet18', input_size=512, max_objects=100):
+def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100):
     assert backbone in ['resnet18', 'resnet34', 'resnet50']
     output_size = input_size // 4
     image_input = Input(shape=(None, None, 3))
-    hm_input = Input(shape=(output_size, output_size, 3))
+    hm_input = Input(shape=(output_size, output_size, num_classes))
     wh_input = Input(shape=(max_objects, 2))
     reg_input = Input(shape=(max_objects, 2))
     reg_mask_input = Input(shape=(max_objects,))
@@ -100,8 +100,8 @@ def centernet(num_classes, backbone='resnet18', input_size=512, max_objects=100)
     y3 = ReLU()(y3)
     y3 = Conv2D(2, 1, kernel_initializer=normal(0, 0.001))(y3)
 
-    loss_ = loss(y1, y2, y3, hm_input, wh_input, reg_input, reg_mask_input, index_input)
-    model = Model(inputs=[image_input], outputs=[y1, y2, y3])
+    loss_ = Lambda(loss, name='centernet_loss')([y1, y2, y3, hm_input, wh_input, reg_input, reg_mask_input, index_input])
+    model = Model(inputs=[image_input, hm_input, wh_input, reg_input, reg_mask_input, index_input], outputs=[loss_])
 
     # detections = decode(y1, y2, y3)
     detections = Lambda(lambda x: decode(*x, max_objects=max_objects))([y1, y2, y3])
@@ -110,7 +110,9 @@ def centernet(num_classes, backbone='resnet18', input_size=512, max_objects=100)
 
 
 if __name__ == '__main__':
-    centernet(num_classes=20)
+    model, _ = centernet(num_classes=20)
+    for i in range(len(model.layers)):
+        print(i, model.layers[i])
     # import numpy as np
     #
     # hm = np.load('/home/adam/workspace/github/xuannianz/CenterNet/hm.npy')

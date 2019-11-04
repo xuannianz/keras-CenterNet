@@ -6,7 +6,7 @@ import numpy as np
 import random
 import warnings
 
-from utils import get_affine_transform, affine_transform, gaussian_radius, draw_gaussian
+from generators.utils import get_affine_transform, affine_transform, gaussian_radius, draw_gaussian
 
 
 class Generator(keras.utils.Sequence):
@@ -41,6 +41,7 @@ class Generator(keras.utils.Sequence):
         self.group_method = group_method
         self.shuffle_groups = shuffle_groups
         self.input_size = input_size
+        self.output_size = self.input_size // 4
         self.max_objects = max_objects
         self.groups = None
         self.multi_scale = multi_scale
@@ -376,8 +377,7 @@ class Generator(keras.utils.Sequence):
         # construct an image batch object
         batch_images = np.zeros((len(image_group), self.input_size, self.input_size, 3), dtype=np.float32)
 
-        output_size = self.input_size // 4
-        batch_hms = np.zeros((len(image_group), output_size, output_size, self.num_classes()), dtype=np.float32)
+        batch_hms = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()), dtype=np.float32)
         batch_whs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         batch_regs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         # bbox 缩小后会计算并且判断其 h, w 是否大小 0, 此举会过滤掉那些比较小的 bbox, 也就不需要参与 loss 计算
@@ -389,10 +389,10 @@ class Generator(keras.utils.Sequence):
         for b, (image, annotations) in enumerate(zip(image_group, annotations_group)):
             c = np.array([image.shape[1] / 2., image.shape[0] / 2.], dtype=np.float32)
             s = max(image.shape[0], image.shape[1]) * 1.0
+            trans_input = get_affine_transform(c, s, self.input_size)
 
             # inputs
-            trans_input = get_affine_transform(c, s, (self.input_size, self.input_size))
-            image = cv2.warpAffine(image, trans_input, (self.input_size, self.input_size), flags=cv2.INTER_LINEAR)
+            image = self.preprocess_image(image, c, s)
             batch_images[b] = image
 
             # outputs
@@ -402,7 +402,7 @@ class Generator(keras.utils.Sequence):
             class_ids = annotations['labels']
             assert class_ids.shape[0] != 0
 
-            trans_output = get_affine_transform(c, s, (output_size, output_size))
+            trans_output = get_affine_transform(c, s, self.output_size)
             for i in range(bboxes.shape[0]):
                 # 不想修改原来的 annotations 中的 bboxes
                 bbox = bboxes[i].copy()
@@ -411,8 +411,8 @@ class Generator(keras.utils.Sequence):
                 bbox[:2] = affine_transform(bbox[:2], trans_output)
                 # (x2, y2)
                 bbox[2:] = affine_transform(bbox[2:], trans_output)
-                bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, output_size - 1)
-                bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, output_size - 1)
+                bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, self.output_size - 1)
+                bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, self.output_size - 1)
                 h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
                 if h > 0 and w > 0:
                     radius_h, radius_w = gaussian_radius((math.ceil(h), math.ceil(w)))
@@ -423,26 +423,26 @@ class Generator(keras.utils.Sequence):
                     draw_gaussian(batch_hms[b, :, :, cls_id], ct_int, radius_h, radius_w)
                     batch_whs[b, i] = 1. * w, 1. * h
                     # 中心点所在的像素的下标
-                    batch_indices[b, i] = ct_int[1] * output_size + ct_int[0]
+                    batch_indices[b, i] = ct_int[1] * self.output_size + ct_int[0]
                     # 中心点的偏移量
                     batch_regs[b, i] = ct - ct_int
                     batch_reg_masks[b, i] = 1
-            print(np.sum(batch_reg_masks[b]))
-            for i in range(self.num_classes()):
-                plt.subplot(4, 5, i + 1)
-                hm = batch_hms[b, :, :, i]
-                plt.imshow(hm, cmap='gray')
-                plt.axis('off')
-            plt.show()
-            for i in range(bboxes.shape[0]):
-                x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
-                x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
-                class_id = class_ids[i]
-                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
-                cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
-            cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-            cv2.imshow('image', image)
-            cv2.waitKey()
+            # print(np.sum(batch_reg_masks[b]))
+            # for i in range(self.num_classes()):
+            #     plt.subplot(4, 5, i + 1)
+            #     hm = batch_hms[b, :, :, i]
+            #     plt.imshow(hm, cmap='gray')
+            #     plt.axis('off')
+            # plt.show()
+            # for i in range(bboxes.shape[0]):
+            #     x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
+            #     x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
+            #     class_id = class_ids[i]
+            #     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
+            #     cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
+            # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+            # cv2.imshow('image', image)
+            # cv2.waitKey()
         return [batch_images, batch_hms, batch_whs, batch_regs, batch_reg_masks, batch_indices]
 
     def compute_targets(self, image_group, annotations_group):
@@ -520,23 +520,16 @@ class Generator(keras.utils.Sequence):
         self.current_index = current_index
         return inputs, targets
 
-    def preprocess_image(self, image):
-        image_height, image_width = image.shape[:2]
-        if image_height > image_width:
-            scale = self.image_size / image_height
-            resized_height = self.image_size
-            resized_width = int(image_width * scale)
-        else:
-            scale = self.image_size / image_width
-            resized_height = int(image_height * scale)
-            resized_width = self.image_size
-        image = cv2.resize(image, (resized_width, resized_height))
-        new_image = np.ones((self.image_size, self.image_size, 3), dtype=np.float32) * 127.5
-        offset_h = (self.image_size - resized_height) // 2
-        offset_w = (self.image_size - resized_width) // 2
-        new_image[offset_h:offset_h + resized_height, offset_w:offset_w + resized_width] = image.astype(np.float32)
-        new_image /= 255.
-        return new_image, scale, offset_h, offset_w
+    def preprocess_image(self, image, c, s):
+        trans_input = get_affine_transform(c, s, (self.input_size, self.input_size))
+        image = cv2.warpAffine(image, trans_input, (self.input_size, self.input_size), flags=cv2.INTER_LINEAR)
+        image = image.astype(np.float32)
+
+        image[..., 0] -= 103.939
+        image[..., 1] -= 116.779
+        image[..., 2] -= 123.68
+
+        return image
 
     def get_transformed_group(self, group):
         image_group = self.load_image_group(group)

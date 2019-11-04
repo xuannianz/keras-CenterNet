@@ -19,8 +19,11 @@ def get_affine_transform(center,
     Returns:
 
     """
-    if not isinstance(scale, np.ndarray) and not isinstance(scale, list):
+    if not isinstance(scale, np.ndarray) and not isinstance(scale, list) and not isinstance(scale, tuple):
         scale = np.array([scale, scale], dtype=np.float32)
+
+    if not isinstance(output_size, np.ndarray) and not isinstance(output_size, list) and not isinstance(output_size, tuple):
+        output_size = np.array([output_size, output_size], dtype=np.float32)
 
     scale_tmp = scale
     src_w = scale_tmp[0]
@@ -89,7 +92,6 @@ def gaussian2D(shape, sigma_w=1, sigma_h=1):
 
     h = np.exp(-((x * x) / (2 * sigma_w * sigma_w) + (y * y) / (2 * sigma_h * sigma_h)))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
-    print(h)
     return h
 
 

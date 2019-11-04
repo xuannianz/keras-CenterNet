@@ -1,0 +1,286 @@
+"""
+Copyright 2017-2018 Fizyr (https://fizyr.com)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+import cv2
+import numpy as np
+import progressbar
+
+from utils.compute_overlap import compute_overlap
+from utils.visualization import draw_detections, draw_annotations
+from generators.utils import get_affine_transform, affine_transform
+
+assert (callable(progressbar.progressbar)), "Using wrong progressbar module, install 'progressbar2' instead."
+
+
+def _compute_ap(recall, precision):
+    """
+    Compute the average precision, given the recall and precision curves.
+
+    Code originally from https://github.com/rbgirshick/py-faster-rcnn.
+
+    Args:
+        recall: The recall curve (list).
+        precision: The precision curve (list).
+
+    Returns:
+        The average precision as computed in py-faster-rcnn.
+
+    """
+    # correct AP calculation
+    # first append sentinel values at the end
+    mrec = np.concatenate(([0.], recall, [1.]))
+    mpre = np.concatenate(([0.], precision, [0.]))
+
+    # compute the precision envelope
+    for i in range(mpre.size - 1, 0, -1):
+        mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
+
+    # to calculate area under PR curve, look for points
+    # where X axis (recall) changes value
+    i = np.where(mrec[1:] != mrec[:-1])[0]
+
+    # and sum (delta recall) * prec
+    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
+    return ap
+
+
+def _get_detections(generator, model, score_threshold=0.05, max_detections=100, visualize=False):
+    """
+    Get the detections from the model using the generator.
+    依次获取每个图像上 detections, 对每个 detection 进行归类
+
+    The result is a list of lists such that the size is:
+        all_detections[num_images][num_classes] = detections[num_class_detections, 5]
+
+    Args:
+        generator: The generator used to run images through the model.
+        model: The model to run on the images.
+        score_threshold: The score confidence threshold to use.
+        max_detections: The maximum number of detections to use per image.
+        save_path: The path to save the images with visualized detections to.
+
+    Returns:
+        A list of lists containing the detections for each image in the generator.
+
+    """
+    # generator.size() 返回的是 generator image 的数量
+    # 外层 list 有 generator.size() 个元素, 内层 list 有 generator.num_classes() 个元素
+    all_detections = [[None for i in range(generator.num_classes()) if generator.has_label(i)] for j in
+                      range(generator.size())]
+
+    multi_image_sizes = (320, 352, 384, 416, 448, 480, 512, 544, 576, 608)
+    for i in progressbar.progressbar(range(generator.size()), prefix='Running network: '):
+        image = generator.load_image(i)
+        src_image = image.copy()
+
+        c = np.array([image.shape[1] / 2., image.shape[0] / 2.], dtype=np.float32)
+        s = max(image.shape[0], image.shape[1]) * 1.0
+
+        image = generator.preprocess_image(image, c, s)
+
+        # run network
+        detections = model.predict_on_batch(np.expand_dims(image, axis=0))[0]
+        scores = detections[:, 4]
+        # select indices which have a score above the threshold
+        indices = np.where(scores > score_threshold)[0]
+
+        # select those detections
+        detections = detections[indices]
+
+        trans = get_affine_transform(c, s, generator.output_size, inv=1)
+
+        for j in range(detections.shape[0]):
+            detections[j, 0:2] = affine_transform(detections[j, 0:2], trans)
+            detections[j, 2:4] = affine_transform(detections[j, 2:4], trans)
+
+        if visualize:
+            draw_annotations(src_image, generator.load_annotations(i), label_to_name=generator.label_to_name)
+            draw_detections(src_image, detections[:5, :4], detections[:5, 4], detections[:5, 5].astype(np.int32),
+                            label_to_name=generator.label_to_name,
+                            score_threshold=score_threshold)
+
+            # cv2.imwrite(os.path.join(save_path, '{}.png'.format(i)), raw_image)
+            cv2.namedWindow('{}'.format(i), cv2.WINDOW_NORMAL)
+            cv2.imshow('{}'.format(i), src_image)
+            cv2.waitKey(0)
+
+        # copy detections to all_detections
+        for class_id in range(generator.num_classes()):
+            all_detections[i][class_id] = detections[detections[:, -1] == class_id, :-1]
+
+    return all_detections
+
+
+def _get_annotations(generator):
+    """
+    Get the ground truth annotations from the generator.
+    依次获取每个图像上 gt_boxes, 对每个 gt_box 进行归类
+
+    The result is a list of lists such that the size is:
+        all_annotations[num_images][num_classes] = annotations[num_class_annotations, 5]
+
+    Args:
+        generator: The generator used to retrieve ground truth annotations.
+
+    Returns:
+        A list of lists containing the annotations for each image in the generator.
+
+    """
+    all_annotations = [[None for i in range(generator.num_classes())] for j in range(generator.size())]
+
+    for i in progressbar.progressbar(range(generator.size()), prefix='Parsing annotations: '):
+        # load the annotations
+        annotations = generator.load_annotations(i)
+
+        # copy detections to all_annotations
+        for label in range(generator.num_classes()):
+            if not generator.has_label(label):
+                continue
+
+            all_annotations[i][label] = annotations['bboxes'][annotations['labels'] == label, :].copy()
+
+    return all_annotations
+
+
+def evaluate(
+        generator,
+        model,
+        iou_threshold=0.5,
+        score_threshold=0.01,
+        max_detections=100,
+        visualize=False,
+        epoch=0
+):
+    """
+    Evaluate a given dataset using a given model.
+
+    Args:
+        generator: The generator that represents the dataset to evaluate.
+        model: The model to evaluate.
+        iou_threshold: The threshold used to consider when a detection is positive or negative.
+        score_threshold: The score confidence threshold to use for detections.
+        max_detections: The maximum number of detections to use per image.
+        visualize: Show the visualized detections or not.
+
+    Returns:
+        A dict mapping class names to mAP scores.
+
+    """
+    # gather all detections and annotations
+    all_detections = _get_detections(generator, model, score_threshold=score_threshold, max_detections=max_detections,
+                                     visualize=visualize)
+    all_annotations = _get_annotations(generator)
+    average_precisions = {}
+
+    # all_detections = pickle.load(open('all_detections_{}.pkl'.format(epoch + 1), 'rb'))
+    # all_annotations = pickle.load(open('all_annotations_{}.pkl'.format(epoch + 1), 'rb'))
+    # pickle.dump(all_detections, open('all_detections_{}.pkl'.format(epoch + 1), 'wb'))
+    # pickle.dump(all_annotations, open('all_annotations_{}.pkl'.format(epoch + 1), 'wb'))
+
+    # process detections and annotations
+    for label in range(generator.num_classes()):
+        if not generator.has_label(label):
+            continue
+
+        false_positives = np.zeros((0,))
+        true_positives = np.zeros((0,))
+        scores = np.zeros((0,))
+        num_annotations = 0.0
+
+        for i in range(generator.size()):
+            detections = all_detections[i][label]
+            annotations = all_annotations[i][label]
+            num_annotations += annotations.shape[0]
+            detected_annotations = []
+
+            for d in detections:
+                scores = np.append(scores, d[4])
+
+                if annotations.shape[0] == 0:
+                    false_positives = np.append(false_positives, 1)
+                    true_positives = np.append(true_positives, 0)
+                    continue
+                # 计算某个图像上的某个类的一个 detection 和所有 annotations 的 overlap
+                overlaps = compute_overlap(np.expand_dims(d, axis=0), annotations)
+                # 和此 detection 有最大 overlap 的 annotation 的 id
+                assigned_annotation = np.argmax(overlaps, axis=1)
+                # 此 detection 和所有 annotation 的最大 overlap
+                max_overlap = overlaps[0, assigned_annotation]
+
+                if max_overlap >= iou_threshold and assigned_annotation not in detected_annotations:
+                    false_positives = np.append(false_positives, 0)
+                    true_positives = np.append(true_positives, 1)
+                    detected_annotations.append(assigned_annotation)
+                else:
+                    false_positives = np.append(false_positives, 1)
+                    true_positives = np.append(true_positives, 0)
+
+        # no annotations -> AP for this class is 0 (is this correct?)
+        if num_annotations == 0:
+            average_precisions[label] = 0, 0
+            continue
+
+        # sort by score
+        indices = np.argsort(-scores)
+        false_positives = false_positives[indices]
+        true_positives = true_positives[indices]
+
+        # compute false positives and true positives
+        false_positives = np.cumsum(false_positives)
+        true_positives = np.cumsum(true_positives)
+
+        # compute recall and precision
+        recall = true_positives / num_annotations
+        # np.finfo(np.float64).eps 能表示的最小的正数
+        precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+
+        # compute average precision
+        average_precision = _compute_ap(recall, precision)
+        average_precisions[label] = average_precision, num_annotations
+
+    return average_precisions
+
+
+if __name__ == '__main__':
+    from generators.pascal import PascalVocGenerator
+    from models.resnet import centernet
+    import os
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    test_generator = PascalVocGenerator(
+        'datasets/voc_test/VOC2007',
+        'test',
+        shuffle_groups=False,
+        skip_truncated=False,
+        skip_difficult=True,
+        anchors_path='yolo/voc_anchors_416.txt',
+    )
+    model_path = 'yolo/checkpoints/2019-10-26/pascal_30_20.7797_22.0359.h5'
+    anchors = test_generator.anchors
+    num_classes = test_generator.num_classes()
+    model, prediction_model = centernet(num_classes=num_classes)
+    prediction_model.load_weights(model_path, by_name=True, skip_mismatch=True)
+    average_precisions = evaluate(test_generator, prediction_model, visualize=False, score_threshold=0.01)
+    # compute per class average precision
+    total_instances = []
+    precisions = []
+    for label, (average_precision, num_annotations) in average_precisions.items():
+        print('{:.0f} instances of class'.format(num_annotations), test_generator.label_to_name(label),
+              'with average precision: {:.4f}'.format(average_precision))
+        total_instances.append(num_annotations)
+        precisions.append(average_precision)
+    mean_ap = sum(precisions) / sum(x > 0 for x in total_instances)
+    print('mAP: {:.4f}'.format(mean_ap))
