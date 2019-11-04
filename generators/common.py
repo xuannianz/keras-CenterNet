@@ -427,22 +427,22 @@ class Generator(keras.utils.Sequence):
                     # 中心点的偏移量
                     batch_regs[b, i] = ct - ct_int
                     batch_reg_masks[b, i] = 1
-            # print(np.sum(batch_reg_masks[b]))
-            # for i in range(self.num_classes()):
-            #     plt.subplot(4, 5, i + 1)
-            #     hm = batch_hms[b, :, :, i]
-            #     plt.imshow(hm, cmap='gray')
-            #     plt.axis('off')
-            # plt.show()
-            # for i in range(bboxes.shape[0]):
-            #     x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
-            #     x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
-            #     class_id = class_ids[i]
-            #     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
-            #     cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
-            # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-            # cv2.imshow('image', image)
-            # cv2.waitKey()
+            print(np.sum(batch_reg_masks[b]))
+            for i in range(self.num_classes()):
+                plt.subplot(4, 5, i + 1)
+                hm = batch_hms[b, :, :, i]
+                plt.imshow(hm, cmap='gray')
+                plt.axis('off')
+            plt.show()
+            for i in range(bboxes.shape[0]):
+                x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
+                x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
+                class_id = class_ids[i]
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
+                cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
+            cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+            cv2.imshow('image', image)
+            cv2.waitKey()
         return [batch_images, batch_hms, batch_whs, batch_regs, batch_reg_masks, batch_indices]
 
     def compute_targets(self, image_group, annotations_group):

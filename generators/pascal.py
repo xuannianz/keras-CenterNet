@@ -156,7 +156,6 @@ class PascalVocGenerator(Generator):
         """
         path = os.path.join(self.data_dir, 'JPEGImages', self.image_names[image_index] + self.image_extension)
         image = cv2.imread(path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return image
 
     def __parse_annotation(self, element):
@@ -218,6 +217,6 @@ class PascalVocGenerator(Generator):
 
 
 if __name__ == '__main__':
-    generator = PascalVocGenerator(data_dir='datasets/VOC0712', set_name='val')
+    generator = PascalVocGenerator(data_dir='datasets/VOC0712', set_name='train', batch_size=1)
     for inputs, targets in generator:
-        pass
+        print('hi')

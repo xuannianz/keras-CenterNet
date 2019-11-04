@@ -10,9 +10,18 @@ import tensorflow as tf
 #     i = Conv2DTranspose(256, 4, strides=2, padding='same')(i)
 # print(i.shape)
 
-a = tf.reshape(tf.range(24), (2, 12))
-i = tf.constant([[3], [4]])
+# a = tf.reshape(tf.range(24), (2, 12))
+# i = tf.constant([[3], [4]])
+# sess = tf.Session()
+# print(sess.run(tf.batch_gather(a, i)))
+# b = tf.reshape(tf.range(24), (2, 6, 2))
+# print(sess.run(tf.batch_gather(b, i)))
+
+
+#################
+# about ==
+#################
+a = tf.constant([[1, 2], [3, 4]])
+b = tf.constant([[1, 3], [3, 3]])
 sess = tf.Session()
-print(sess.run(tf.batch_gather(a, i)))
-b = tf.reshape(tf.range(24), (2, 6, 2))
-print(sess.run(tf.batch_gather(b, i)))
+sess.run(a == b)

@@ -1,5 +1,5 @@
 from keras_resnet.models import ResNet18, ResNet34, ResNet50
-from keras.layers import Input, Conv2DTranspose, BatchNormalization, ReLU, Conv2D, Lambda
+from keras.layers import Input, Conv2DTranspose, BatchNormalization, ReLU, Conv2D, Lambda, MaxPooling2D
 from keras.applications import ResNet50V2
 from keras.models import Model
 from keras.initializers import normal, constant, zeros
@@ -11,8 +11,8 @@ from losses import loss
 
 def nms(heat, kernel=3):
     hmax = tf.nn.max_pool2d(heat, (kernel, kernel), strides=1, padding='SAME')
-    keep = (hmax == heat)
-    return heat * tf.cast(keep, tf.float32)
+    heat = tf.where(tf.equal(hmax, heat), heat, tf.zeros_like(heat))
+    return heat
 
 
 def topk(hm, max_objects=100):
@@ -100,20 +100,23 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100)
     y3 = ReLU()(y3)
     y3 = Conv2D(2, 1, kernel_initializer=normal(0, 0.001))(y3)
 
-    loss_ = Lambda(loss, name='centernet_loss')([y1, y2, y3, hm_input, wh_input, reg_input, reg_mask_input, index_input])
+    loss_ = Lambda(loss, name='centernet_loss')(
+        [y1, y2, y3, hm_input, wh_input, reg_input, reg_mask_input, index_input])
     model = Model(inputs=[image_input, hm_input, wh_input, reg_input, reg_mask_input, index_input], outputs=[loss_])
 
     # detections = decode(y1, y2, y3)
     detections = Lambda(lambda x: decode(*x, max_objects=max_objects))([y1, y2, y3])
     prediction_model = Model(inputs=image_input, outputs=detections)
+    debug_model = Model(inputs=image_input, outputs=[y1, y2, y3])
     return model, prediction_model
 
 
 if __name__ == '__main__':
-    model, _ = centernet(num_classes=20)
-    for i in range(len(model.layers)):
-        print(i, model.layers[i])
-    # import numpy as np
+    # model, _ = centernet(num_classes=20)
+    # for i in range(len(model.layers)):
+    #     print(i, model.layers[i])
+    import numpy as np
+
     #
     # hm = np.load('/home/adam/workspace/github/xuannianz/CenterNet/hm.npy')
     # hm = np.transpose(hm, (0, 2, 3, 1))
@@ -125,3 +128,15 @@ if __name__ == '__main__':
     # print(tf_dets[0, :5])
     # dets = np.load('/home/adam/workspace/github/xuannianz/CenterNet/dets.npy')
     # print(dets[0, :5])
+
+    y1 = np.load('y1.npy')
+    y2 = np.load('y2.npy')
+    y3 = np.load('y3.npy')
+    tf_dets, scores = decode(tf.constant(y1), tf.constant(y2), tf.constant(y3))
+    # scores, *_ = topk(tf.constant(hm))
+    # hm = nms(y1)
+    sess = tf.Session()
+    print(sess.run(tf_dets))
+    # print(sess.run(tf.reduce_sum(hm)))
+    # hm = nms(tf.constant(y1))
+    # print(K.eval(hm))

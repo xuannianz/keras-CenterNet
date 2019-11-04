@@ -315,7 +315,7 @@ def main(args=None):
             model.layers[i].trainable = False
 
     # compile model
-    model.compile(optimizer=Adam(lr=1e-4), loss={'centernet_loss': lambda y_true, y_pred: y_pred})
+    model.compile(optimizer=Adam(lr=1e-5), loss={'centernet_loss': lambda y_true, y_pred: y_pred})
     # model.compile(optimizer=SGD(lr=1e-6, momentum=0.9, nesterov=True, decay=1e-5), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
 
     # print model summary
@@ -336,7 +336,7 @@ def main(args=None):
     return model.fit_generator(
         generator=train_generator,
         steps_per_epoch=args.steps,
-        initial_epoch=0,
+        initial_epoch=1,
         epochs=args.epochs,
         verbose=1,
         callbacks=callbacks,

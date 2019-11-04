@@ -99,7 +99,8 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
 
         # select those detections
         detections = detections[indices]
-
+        detections_copy = detections.copy()
+        detections = detections.astype(np.float64)
         trans = get_affine_transform(c, s, generator.output_size, inv=1)
 
         for j in range(detections.shape[0]):
@@ -261,19 +262,30 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     test_generator = PascalVocGenerator(
-        'datasets/voc_test/VOC2007',
-        'test',
+        'datasets/VOC0712',
+        'val',
         shuffle_groups=False,
         skip_truncated=False,
         skip_difficult=True,
-        anchors_path='yolo/voc_anchors_416.txt',
     )
-    model_path = 'yolo/checkpoints/2019-10-26/pascal_30_20.7797_22.0359.h5'
-    anchors = test_generator.anchors
+    model_path = 'checkpoints/2019-11-04/pascal_01_11.1278_21.2093.h5'
     num_classes = test_generator.num_classes()
-    model, prediction_model = centernet(num_classes=num_classes)
+    model, prediction_model, debug_model = centernet(num_classes=num_classes)
     prediction_model.load_weights(model_path, by_name=True, skip_mismatch=True)
-    average_precisions = evaluate(test_generator, prediction_model, visualize=False, score_threshold=0.01)
+    # inputs, targets = test_generator.__getitem__(0)
+    # y1, y2, y3 = debug_model.predict(inputs[0])
+    # np.save('y1', y1)
+    # np.save('y2', y2)
+    # np.save('y3', y3)
+    # y1 = np.load('y1.npy')
+    # y2 = np.load('y2.npy')
+    # y3 = np.load('y3.npy')
+    # from models.resnet import decode
+    # import tensorflow as tf
+    # import keras.backend as K
+    # detections = decode(tf.constant(y1), tf.constant(y2), tf.constant(y3))
+    # print(K.eval(detections))
+    average_precisions = evaluate(test_generator, prediction_model, visualize=True, score_threshold=0.01)
     # compute per class average precision
     total_instances = []
     precisions = []
