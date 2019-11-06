@@ -1,5 +1,6 @@
 from keras_resnet.models import ResNet18, ResNet34, ResNet50
 from keras.layers import Input, Conv2DTranspose, BatchNormalization, ReLU, Conv2D, Lambda, MaxPooling2D, Dropout
+from keras.layers import UpSampling2D, Concatenate
 from keras.models import Model
 from keras.initializers import normal, constant, zeros
 from keras.regularizers import l2
@@ -124,17 +125,49 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
     else:
         resnet = ResNet50(image_input, include_top=False, freeze_bn=True)
 
-    # (b, 16, 16, 512)
-    C5 = resnet.outputs[-1]
+    # C5 (b, 16, 16, 512)
+    C2, C3, C4, C5 = resnet.outputs
 
     x = Dropout(rate=0.5)(C5)
     # decoder
-    for i in range(3):
-        x = Conv2DTranspose(256, (4, 4), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal',
-                            kernel_regularizer=l2(5e-4))(x)
-        x = BatchNormalization()(x)
-        x = ReLU()(x)
-        x = Dropout(rate=0.5)(x)
+    x = Conv2D(256, 1, padding='same', use_bias=False,
+               kernel_initializer='he_normal',
+               kernel_regularizer=l2(5e-4))(UpSampling2D()(x))
+    x = BatchNormalization()(x)
+    x = ReLU()(x)
+    x = Concatenate([C4, x])
+    x = Conv2D(256, 3, padding='same', use_bias=False,
+               kernel_initializer='he_normal',
+               kernel_regularizer=l2(5e-4))(x)
+    x = BatchNormalization()(x)
+    # (b, 32, 32, 512)
+    x = ReLU()(x)
+
+    x = Conv2D(128, 1, padding='same', use_bias=False,
+               kernel_initializer='he_normal',
+               kernel_regularizer=l2(5e-4))(UpSampling2D()(x))
+    x = BatchNormalization()(x)
+    x = ReLU()(x)
+    x = Concatenate([C3, x])
+    x = Conv2D(128, 3, padding='same', use_bias=False,
+               kernel_initializer='he_normal',
+               kernel_regularizer=l2(5e-4))(x)
+    x = BatchNormalization()(x)
+    # (b, 64, 64, 128)
+    x = ReLU()(x)
+
+    x = Conv2D(64, 1, padding='same', use_bias=False,
+               kernel_initializer='he_normal',
+               kernel_regularizer=l2(5e-4))(UpSampling2D()(x))
+    x = BatchNormalization()(x)
+    x = ReLU()(x)
+    x = Concatenate([C2, x])
+    x = Conv2D(64, 3, padding='same', use_bias=False,
+               kernel_initializer='he_normal',
+               kernel_regularizer=l2(5e-4))(x)
+    x = BatchNormalization()(x)
+    # (b, 128, 128, 512)
+    x = ReLU()(x)
 
     # hm header
     y1 = Conv2D(64, 3, padding='same', use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(5e-4))(x)

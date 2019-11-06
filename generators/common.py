@@ -6,7 +6,8 @@ import numpy as np
 import random
 import warnings
 
-from generators.utils import get_affine_transform, affine_transform, gaussian_radius, draw_gaussian
+from generators.utils import get_affine_transform, affine_transform
+from generators.utils import gaussian_radius, draw_gaussian, gaussian_radius_2, draw_gaussian_2
 
 
 class Generator(keras.utils.Sequence):
@@ -378,6 +379,7 @@ class Generator(keras.utils.Sequence):
         batch_images = np.zeros((len(image_group), self.input_size, self.input_size, 3), dtype=np.float32)
 
         batch_hms = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()), dtype=np.float32)
+        batch_hms_2 = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()), dtype=np.float32)
         batch_whs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         batch_regs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         # bbox 缩小后会计算并且判断其 h, w 是否大小 0, 此举会过滤掉那些比较小的 bbox, 也就不需要参与 loss 计算
@@ -418,32 +420,48 @@ class Generator(keras.utils.Sequence):
                     radius_h, radius_w = gaussian_radius((math.ceil(h), math.ceil(w)))
                     radius_h = max(0, int(radius_h))
                     radius_w = max(0, int(radius_w))
+
+                    radius = gaussian_radius_2((math.ceil(h), math.ceil(w)))
+                    radius = max(0, int(radius))
                     ct = np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
                     ct_int = ct.astype(np.int32)
                     draw_gaussian(batch_hms[b, :, :, cls_id], ct_int, radius_h, radius_w)
+                    draw_gaussian_2(batch_hms_2[b, :, :, cls_id], ct_int, radius)
                     batch_whs[b, i] = 1. * w, 1. * h
                     # 中心点所在的像素的下标
                     batch_indices[b, i] = ct_int[1] * self.output_size + ct_int[0]
                     # 中心点的偏移量
                     batch_regs[b, i] = ct - ct_int
                     batch_reg_masks[b, i] = 1
-            print(np.sum(batch_reg_masks[b]))
-            for i in range(self.num_classes()):
-                plt.subplot(4, 5, i + 1)
-                hm = batch_hms[b, :, :, i]
-                plt.imshow(hm, cmap='gray')
-                plt.axis('off')
-            plt.show()
-            for i in range(bboxes.shape[0]):
-                x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
-                x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
-                class_id = class_ids[i]
-                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
-                cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
-            cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-            cv2.imshow('image', image)
-            cv2.waitKey()
-        return [batch_images, batch_hms, batch_whs, batch_regs, batch_reg_masks, batch_indices]
+
+                    # hm = batch_hms[b, :, :, cls_id]
+                    # hm = np.round(hm * 255).astype(np.uint8)
+                    # hm = cv2.cvtColor(hm, cv2.COLOR_GRAY2BGR)
+                    # hm_2 = batch_hms_2[b, :, :, cls_id]
+                    # hm_2 = np.round(hm_2 * 255).astype(np.uint8)
+                    # hm_2 = cv2.cvtColor(hm_2, cv2.COLOR_GRAY2BGR)
+                    # cv2.rectangle(hm, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0, 255, 0), 1)
+                    # cv2.rectangle(hm_2, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0, 255, 0), 1)
+                    # cv2.namedWindow('hm', cv2.WINDOW_NORMAL)
+                    # cv2.imshow('hm', np.hstack([hm, hm_2]))
+                    # cv2.waitKey()
+            # print(np.sum(batch_reg_masks[b]))
+            # for i in range(self.num_classes()):
+            #     plt.subplot(4, 5, i + 1)
+            #     hm = batch_hms[b, :, :, i]
+            #     plt.imshow(hm, cmap='gray')
+            #     plt.axis('off')
+            # plt.show()
+            # for i in range(bboxes.shape[0]):
+            #     x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
+            #     x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
+            #     class_id = class_ids[i]
+            #     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
+            #     cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
+            # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+            # cv2.imshow('image', image)
+            # cv2.waitKey()
+        return [batch_images, batch_hms_2, batch_whs, batch_regs, batch_reg_masks, batch_indices]
 
     def compute_targets(self, image_group, annotations_group):
         """

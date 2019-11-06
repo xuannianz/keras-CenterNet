@@ -107,8 +107,11 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
             detections[j, 0:2] = affine_transform(detections[j, 0:2], trans)
             detections[j, 2:4] = affine_transform(detections[j, 2:4], trans)
 
+        detections[:, [0, 2]] = np.clip(detections[:, [0, 2]], 0, src_image.shape[1])
+        detections[:, [1, 3]] = np.clip(detections[:, [1, 3]], 0, src_image.shape[0])
+
         if visualize:
-            draw_annotations(src_image, generator.load_annotations(i), label_to_name=generator.label_to_name)
+            # draw_annotations(src_image, generator.load_annotations(i), label_to_name=generator.label_to_name)
             draw_detections(src_image, detections[:5, :4], detections[:5, 4], detections[:5, 5].astype(np.int32),
                             label_to_name=generator.label_to_name,
                             score_threshold=score_threshold)
@@ -268,9 +271,9 @@ if __name__ == '__main__':
         skip_truncated=False,
         skip_difficult=True,
     )
-    model_path = 'checkpoints/2019-11-04/pascal_01_11.1278_21.2093.h5'
+    model_path = 'checkpoints/2019-11-06/pascal_24_3.6393_4.7059.h5'
     num_classes = test_generator.num_classes()
-    model, prediction_model, debug_model = centernet(num_classes=num_classes)
+    model, prediction_model, debug_model = centernet(num_classes=num_classes, nms=True, score_threshold=0.01)
     prediction_model.load_weights(model_path, by_name=True, skip_mismatch=True)
     # inputs, targets = test_generator.__getitem__(0)
     # y1, y2, y3 = debug_model.predict(inputs[0])
@@ -285,7 +288,7 @@ if __name__ == '__main__':
     # import keras.backend as K
     # detections = decode(tf.constant(y1), tf.constant(y2), tf.constant(y3))
     # print(K.eval(detections))
-    average_precisions = evaluate(test_generator, prediction_model, visualize=True, score_threshold=0.01)
+    average_precisions = evaluate(test_generator, prediction_model, visualize=False, score_threshold=0.01)
     # compute per class average precision
     total_instances = []
     precisions = []

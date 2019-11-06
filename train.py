@@ -24,7 +24,7 @@ import os
 import sys
 import tensorflow as tf
 
-from models.resnet import centernet
+from models.resnet_2 import centernet
 
 
 def makedirs(path):
@@ -303,7 +303,7 @@ def main(args=None):
     train_generator, validation_generator = create_generators(args)
 
     num_classes = train_generator.num_classes()
-    model, prediction_model = centernet(num_classes=num_classes, input_size=args.input_size)
+    model, prediction_model, debug_model = centernet(num_classes=num_classes, input_size=args.input_size)
 
     # create the model
     print('Loading model, this may take a second...')
@@ -311,11 +311,11 @@ def main(args=None):
 
     # freeze layers
     if args.freeze_backbone:
-        for i in range(86):
+        for i in range(190):
             model.layers[i].trainable = False
 
     # compile model
-    model.compile(optimizer=Adam(lr=1e-5), loss={'centernet_loss': lambda y_true, y_pred: y_pred})
+    model.compile(optimizer=Adam(lr=1e-3), loss={'centernet_loss': lambda y_true, y_pred: y_pred})
     # model.compile(optimizer=SGD(lr=1e-6, momentum=0.9, nesterov=True, decay=1e-5), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
 
     # print model summary
@@ -336,7 +336,7 @@ def main(args=None):
     return model.fit_generator(
         generator=train_generator,
         steps_per_epoch=args.steps,
-        initial_epoch=1,
+        initial_epoch=0,
         epochs=args.epochs,
         verbose=1,
         callbacks=callbacks,
