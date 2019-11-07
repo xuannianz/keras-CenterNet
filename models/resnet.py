@@ -129,12 +129,13 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
 
     x = Dropout(rate=0.5)(C5)
     # decoder
+    num_filters = 256
     for i in range(3):
-        x = Conv2DTranspose(256, (4, 4), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal',
+        num_filters = num_filters // pow(2, i)
+        x = Conv2DTranspose(num_filters, (4, 4), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal',
                             kernel_regularizer=l2(5e-4))(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
-        x = Dropout(rate=0.5)(x)
 
     # hm header
     y1 = Conv2D(64, 3, padding='same', use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(5e-4))(x)

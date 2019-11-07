@@ -260,7 +260,7 @@ def evaluate(
 
 if __name__ == '__main__':
     from generators.pascal import PascalVocGenerator
-    from models.resnet import centernet
+    from models.resnet_2 import centernet
     import os
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
@@ -271,7 +271,7 @@ if __name__ == '__main__':
         skip_truncated=False,
         skip_difficult=True,
     )
-    model_path = 'checkpoints/2019-11-06/pascal_24_3.6393_4.7059.h5'
+    model_path = 'checkpoints/2019-11-07/pascal_19_3.0213_4.3640.h5'
     num_classes = test_generator.num_classes()
     model, prediction_model, debug_model = centernet(num_classes=num_classes, nms=True, score_threshold=0.01)
     prediction_model.load_weights(model_path, by_name=True, skip_mismatch=True)
@@ -288,7 +288,7 @@ if __name__ == '__main__':
     # import keras.backend as K
     # detections = decode(tf.constant(y1), tf.constant(y2), tf.constant(y3))
     # print(K.eval(detections))
-    average_precisions = evaluate(test_generator, prediction_model, visualize=False, score_threshold=0.01)
+    average_precisions = evaluate(test_generator, prediction_model, visualize=True, score_threshold=0.01)
     # compute per class average precision
     total_instances = []
     precisions = []

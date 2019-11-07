@@ -19,6 +19,8 @@ class Generator(keras.utils.Sequence):
             self,
             multi_scale=False,
             multi_image_sizes=(320, 352, 384, 416, 448, 480, 512, 544, 576, 608),
+            misc_effect=None,
+            visual_effect=None,
             batch_size=1,
             group_method='ratio',  # one of 'none', 'random', 'ratio'
             shuffle_groups=True,
@@ -38,6 +40,8 @@ class Generator(keras.utils.Sequence):
             input_size:
             max_objects:
         """
+        self.misc_effect = misc_effect
+        self.visual_effect = visual_effect
         self.batch_size = int(batch_size)
         self.group_method = group_method
         self.shuffle_groups = shuffle_groups
@@ -66,16 +70,6 @@ class Generator(keras.utils.Sequence):
         Size of the dataset.
         """
         raise NotImplementedError('size method not implemented')
-
-    def get_anchors(self):
-        """
-        loads the anchors from a txt file
-        """
-        with open(self.anchors_path) as f:
-            anchors = f.readline()
-        anchors = [float(x) for x in anchors.split(',')]
-        # (N, 2), wh
-        return np.array(anchors).reshape(-1, 2)
 
     def num_classes(self):
         """
@@ -241,9 +235,8 @@ class Generator(keras.utils.Sequence):
         """
         Randomly transforms image and annotation.
         """
-        visual_effect = next(self.visual_effect_generator)
         # apply visual effect
-        image = visual_effect(image)
+        image = self.visual_effect(image)
         return image, annotations
 
     def random_visual_effect_group(self, image_group, annotations_group):
@@ -252,7 +245,7 @@ class Generator(keras.utils.Sequence):
         """
         assert (len(image_group) == len(annotations_group))
 
-        if self.visual_effect_generator is None:
+        if self.visual_effect is None:
             # do nothing
             return image_group, annotations_group
 
@@ -298,31 +291,31 @@ class Generator(keras.utils.Sequence):
 
         return image_group, annotations_group
 
-    def random_rotate_group_entry(self, image, annotations):
-        image, bboxes = rotate(image, annotations['bboxes'])
-        annotations['bboxes'] = bboxes
+    def random_misc_group_entry(self, image, annotations):
+        """
+        Randomly transforms image and annotation.
+        """
+        assert annotations['bboxes'].shape[0] != 0
+
+        # randomly transform both image and annotations
+        image, boxes = self.misc_effect(image, annotations['bboxes'])
+        # Transform the bounding boxes in the annotations.
+        annotations['bboxes'] = boxes
         return image, annotations
 
-    def random_rotate_group(self, image_group, annotations_group):
+    def random_misc_group(self, image_group, annotations_group):
+        """
+        Randomly transforms each image and its annotations.
+        """
+
         assert (len(image_group) == len(annotations_group))
+
+        if self.misc_effect is None:
+            return image_group, annotations_group
 
         for index in range(len(image_group)):
             # transform a single group entry
-            image_group[index], annotations_group[index] = self.random_rotate_group_entry(image_group[index],
-                                                                                          annotations_group[index])
-        return image_group, annotations_group
-
-    def random_crop_group_entry(self, image, annotations):
-        image, bboxes = crop(image, annotations['bboxes'])
-        annotations['bboxes'] = bboxes
-        return image, annotations
-
-    def random_crop_group(self, image_group, annotations_group):
-        assert (len(image_group) == len(annotations_group))
-
-        for index in range(len(image_group)):
-            # transform a single group entry
-            image_group[index], annotations_group[index] = self.random_crop_group_entry(image_group[index],
+            image_group[index], annotations_group[index] = self.random_misc_group_entry(image_group[index],
                                                                                         annotations_group[index])
 
         return image_group, annotations_group
@@ -378,8 +371,10 @@ class Generator(keras.utils.Sequence):
         # construct an image batch object
         batch_images = np.zeros((len(image_group), self.input_size, self.input_size, 3), dtype=np.float32)
 
-        batch_hms = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()), dtype=np.float32)
-        batch_hms_2 = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()), dtype=np.float32)
+        batch_hms = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()),
+                             dtype=np.float32)
+        batch_hms_2 = np.zeros((len(image_group), self.output_size, self.output_size, self.num_classes()),
+                               dtype=np.float32)
         batch_whs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         batch_regs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         # bbox 缩小后会计算并且判断其 h, w 是否大小 0, 此举会过滤掉那些比较小的 bbox, 也就不需要参与 loss 计算
@@ -452,12 +447,24 @@ class Generator(keras.utils.Sequence):
             #     plt.imshow(hm, cmap='gray')
             #     plt.axis('off')
             # plt.show()
+            # hm = np.sum(batch_hms[0], axis=-1)
+            # hm = np.round(hm * 255).astype(np.uint8)
+            # hm = cv2.cvtColor(hm, cv2.COLOR_GRAY2BGR)
+            # hm_2 = np.sum(batch_hms_2[0], axis=-1)
+            # hm_2 = np.round(hm_2 * 255).astype(np.uint8)
+            # hm_2 = cv2.cvtColor(hm_2, cv2.COLOR_GRAY2BGR)
             # for i in range(bboxes.shape[0]):
             #     x1, y1 = np.round(affine_transform(bboxes[i, :2], trans_input)).astype(np.int32)
             #     x2, y2 = np.round(affine_transform(bboxes[i, 2:], trans_input)).astype(np.int32)
+            #     x1_, y1_ = np.round(affine_transform(bboxes[i, :2], trans_output)).astype(np.int32)
+            #     x2_, y2_ = np.round(affine_transform(bboxes[i, 2:], trans_output)).astype(np.int32)
             #     class_id = class_ids[i]
             #     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
             #     cv2.putText(image, str(class_id), (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 0), 3)
+            #     cv2.rectangle(hm, (x1_, y1_), (x2_, y2_), (0, 255, 0), 1)
+            #     cv2.rectangle(hm_2, (x1_, y1_), (x2_, y2_), (0, 255, 0), 1)
+            # cv2.namedWindow('hm', cv2.WINDOW_NORMAL)
+            # cv2.imshow('hm', np.hstack([hm, hm_2]))
             # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
             # cv2.imshow('image', image)
             # cv2.waitKey()
@@ -482,14 +489,14 @@ class Generator(keras.utils.Sequence):
         # check validity of annotations
         image_group, annotations_group = self.filter_annotations(image_group, annotations_group, group)
 
-        # image_group, annotations_group = self.random_crop_group(image_group, annotations_group)
-        # image_group, annotations_group = self.random_rotate_group(image_group, annotations_group)
-        #
-        # # randomly apply visual effect
-        # image_group, annotations_group = self.random_visual_effect_group(image_group, annotations_group)
+        # randomly apply visual effect
+        image_group, annotations_group = self.random_visual_effect_group(image_group, annotations_group)
         #
         # # randomly transform data
         # image_group, annotations_group = self.random_transform_group(image_group, annotations_group)
+
+        # randomly apply misc effect
+        image_group, annotations_group = self.random_misc_group(image_group, annotations_group)
         #
         # # perform preprocessing steps
         # image_group, annotations_group = self.preprocess_group(image_group, annotations_group)

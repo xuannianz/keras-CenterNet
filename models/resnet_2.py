@@ -128,14 +128,19 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
     # C5 (b, 16, 16, 512)
     C2, C3, C4, C5 = resnet.outputs
 
-    x = Dropout(rate=0.5)(C5)
+    C5 = Dropout(rate=0.5)(C5)
+    C4 = Dropout(rate=0.4)(C4)
+    C3 = Dropout(rate=0.3)(C3)
+    C2 = Dropout(rate=0.2)(C2)
+    x = C5
+
     # decoder
     x = Conv2D(256, 1, padding='same', use_bias=False,
                kernel_initializer='he_normal',
                kernel_regularizer=l2(5e-4))(UpSampling2D()(x))
     x = BatchNormalization()(x)
     x = ReLU()(x)
-    x = Concatenate([C4, x])
+    x = Concatenate()([C4, x])
     x = Conv2D(256, 3, padding='same', use_bias=False,
                kernel_initializer='he_normal',
                kernel_regularizer=l2(5e-4))(x)
@@ -148,7 +153,7 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
                kernel_regularizer=l2(5e-4))(UpSampling2D()(x))
     x = BatchNormalization()(x)
     x = ReLU()(x)
-    x = Concatenate([C3, x])
+    x = Concatenate()([C3, x])
     x = Conv2D(128, 3, padding='same', use_bias=False,
                kernel_initializer='he_normal',
                kernel_regularizer=l2(5e-4))(x)
@@ -161,7 +166,7 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
                kernel_regularizer=l2(5e-4))(UpSampling2D()(x))
     x = BatchNormalization()(x)
     x = ReLU()(x)
-    x = Concatenate([C2, x])
+    x = Concatenate()([C2, x])
     x = Conv2D(64, 3, padding='same', use_bias=False,
                kernel_initializer='he_normal',
                kernel_regularizer=l2(5e-4))(x)
@@ -205,9 +210,9 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
 if __name__ == '__main__':
     import numpy as np
 
-    # model, *_ = centernet(num_classes=20)
-    # for i in range(len(model.layers)):
-    #     print(i, model.layers[i])
+    model, *_ = centernet(num_classes=20)
+    for i in range(len(model.layers)):
+        print(i, model.layers[i])
 
     #
     # hm = np.load('/home/adam/workspace/github/xuannianz/CenterNet/hm.npy')
@@ -234,10 +239,10 @@ if __name__ == '__main__':
     # hm = nms(tf.constant(y1))
     # print(K.eval(hm))
 
-    detections = np.load('debug/1106/detections.npy')
-    detections = tf.constant(detections)
-    detections = tf.map_fn(lambda x: evaluate_batch_item(x[0],
-                                                         num_classes=20,
-                                                         score_threshold=0.1),
-                           elems=[detections],
-                           dtype=tf.float32)
+    # detections = np.load('debug/1106/detections.npy')
+    # detections = tf.constant(detections)
+    # detections = tf.map_fn(lambda x: evaluate_batch_item(x[0],
+    #                                                      num_classes=20,
+    #                                                      score_threshold=0.1),
+    #                        elems=[detections],
+    #                        dtype=tf.float32)

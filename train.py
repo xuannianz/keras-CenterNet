@@ -24,7 +24,9 @@ import os
 import sys
 import tensorflow as tf
 
-from models.resnet_2 import centernet
+from augmentor.color import VisualEffect
+from augmentor.misc import MiscEffect
+from models.resnet import centernet
 
 
 def makedirs(path):
@@ -136,28 +138,12 @@ def create_generators(args):
     }
 
     # create random transform generator for augmenting training data
-    # if args.random_transform:
-    #     transform_generator = random_transform_generator(
-    #         min_rotation=-0.1,
-    #         max_rotation=0.1,
-    #         min_translation=(-0.1, -0.1),
-    #         max_translation=(0.1, 0.1),
-    #         min_shear=-0.1,
-    #         max_shear=0.1,
-    #         min_scaling=(0.9, 0.9),
-    #         max_scaling=(1.1, 1.1),
-    #         flip_x_chance=0.5,
-    #         flip_y_chance=0.5,
-    #     )
-    #     visual_effect_generator = random_visual_effect_generator(
-    #         contrast_range=(0.9, 1.1),
-    #         brightness_range=(-.1, .1),
-    #         hue_range=(-0.05, 0.05),
-    #         saturation_range=(0.95, 1.05)
-    #     )
-    # else:
-    #     transform_generator = random_transform_generator(flip_x_chance=0.5)
-    #     visual_effect_generator = None
+    if args.random_transform:
+        misc_effect = MiscEffect()
+        visual_effect = VisualEffect()
+    else:
+        misc_effect = None
+        visual_effect = None
 
     if args.dataset_type == 'pascal':
         from generators.pascal import PascalVocGenerator
@@ -166,6 +152,8 @@ def create_generators(args):
             'trainval',
             skip_difficult=True,
             multi_scale=args.multi_scale,
+            misc_effect=misc_effect,
+            visual_effect=visual_effect,
             **common_args
         )
 
@@ -252,7 +240,8 @@ def parse_args(args):
     csv_parser.add_argument('--val-annotations-path',
                             help='Path to CSV file containing annotations for validation (optional).')
 
-    parser.add_argument('--snapshot', help='Resume training from a snapshot.', default='/home/adam/.keras/models/ResNet-50-model.keras.h5')
+    parser.add_argument('--snapshot', help='Resume training from a snapshot.',
+                        default='/home/adam/.keras/models/ResNet-50-model.keras.h5')
     parser.add_argument('--freeze-backbone', help='Freeze training of backbone layers.', action='store_true')
 
     parser.add_argument('--batch-size', help='Size of the batches.', default=1, type=int)
