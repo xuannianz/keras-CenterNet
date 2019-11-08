@@ -57,7 +57,9 @@ def _compute_ap(recall, precision):
     return ap
 
 
-def _get_detections(generator, model, score_threshold=0.05, max_detections=100, visualize=False):
+def _get_detections(generator, model, score_threshold=0.05, max_detections=100, visualize=False,
+                    flip_test=False,
+                    keep_resolution=False):
     """
     Get the detections from the model using the generator.
     依次获取每个图像上 detections, 对每个 detection 进行归类
@@ -81,7 +83,6 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
     all_detections = [[None for i in range(generator.num_classes()) if generator.has_label(i)] for j in
                       range(generator.size())]
 
-    multi_image_sizes = (320, 352, 384, 416, 448, 480, 512, 544, 576, 608)
     for i in progressbar.progressbar(range(generator.size()), prefix='Running network: '):
         image = generator.load_image(i)
         src_image = image.copy()
@@ -89,10 +90,21 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
         c = np.array([image.shape[1] / 2., image.shape[0] / 2.], dtype=np.float32)
         s = max(image.shape[0], image.shape[1]) * 1.0
 
-        image = generator.preprocess_image(image, c, s)
-
+        if not keep_resolution:
+            tgt_w = generator.input_size
+            tgt_h = generator.input_size
+            image = generator.preprocess_image(image, c, s, tgt_w=tgt_w, tgt_h=tgt_h)
+        else:
+            tgt_w = image.shape[1] | 31 + 1
+            tgt_h = image.shape[0] | 31 + 1
+            image = generator.preprocess_image(image, c, s, tgt_w=tgt_w, tgt_h=tgt_h)
+        if flip_test:
+            flipped_image = image[:, ::-1]
+            inputs = np.stack([image, flipped_image], axis=0)
+        else:
+            inputs = np.expand_dims(image, axis=0)
         # run network
-        detections = model.predict_on_batch(np.expand_dims(image, axis=0))[0]
+        detections = model.predict_on_batch(inputs)[0]
         scores = detections[:, 4]
         # select indices which have a score above the threshold
         indices = np.where(scores > score_threshold)[0]
@@ -101,7 +113,7 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
         detections = detections[indices]
         detections_copy = detections.copy()
         detections = detections.astype(np.float64)
-        trans = get_affine_transform(c, s, generator.output_size, inv=1)
+        trans = get_affine_transform(c, s, (tgt_w // 4, tgt_h // 4), inv=1)
 
         for j in range(detections.shape[0]):
             detections[j, 0:2] = affine_transform(detections[j, 0:2], trans)
@@ -166,7 +178,8 @@ def evaluate(
         score_threshold=0.01,
         max_detections=100,
         visualize=False,
-        epoch=0
+        flip_test=False,
+        keep_resolution=False
 ):
     """
     Evaluate a given dataset using a given model.
@@ -178,6 +191,7 @@ def evaluate(
         score_threshold: The score confidence threshold to use for detections.
         max_detections: The maximum number of detections to use per image.
         visualize: Show the visualized detections or not.
+        flip_test:
 
     Returns:
         A dict mapping class names to mAP scores.
@@ -185,7 +199,7 @@ def evaluate(
     """
     # gather all detections and annotations
     all_detections = _get_detections(generator, model, score_threshold=score_threshold, max_detections=max_detections,
-                                     visualize=visualize)
+                                     visualize=visualize, flip_test=flip_test, keep_resolution=keep_resolution)
     all_annotations = _get_annotations(generator)
     average_precisions = {}
 
@@ -260,7 +274,7 @@ def evaluate(
 
 if __name__ == '__main__':
     from generators.pascal import PascalVocGenerator
-    from models.resnet_2 import centernet
+    from models.resnet import centernet
     import os
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
@@ -271,9 +285,16 @@ if __name__ == '__main__':
         skip_truncated=False,
         skip_difficult=True,
     )
-    model_path = 'checkpoints/2019-11-07/pascal_19_3.0213_4.3640.h5'
+    model_path = 'checkpoints/2019-11-08/pascal_98_2.1213_3.2589_0.6670.h5'
     num_classes = test_generator.num_classes()
-    model, prediction_model, debug_model = centernet(num_classes=num_classes, nms=True, score_threshold=0.01)
+    flip_test = True
+    nms = True
+    keep_resolution = False
+    score_threshold = 0.01
+    model, prediction_model, debug_model = centernet(num_classes=num_classes,
+                                                     nms=nms,
+                                                     flip_test=flip_test,
+                                                     score_threshold=score_threshold)
     prediction_model.load_weights(model_path, by_name=True, skip_mismatch=True)
     # inputs, targets = test_generator.__getitem__(0)
     # y1, y2, y3 = debug_model.predict(inputs[0])
@@ -288,7 +309,11 @@ if __name__ == '__main__':
     # import keras.backend as K
     # detections = decode(tf.constant(y1), tf.constant(y2), tf.constant(y3))
     # print(K.eval(detections))
-    average_precisions = evaluate(test_generator, prediction_model, visualize=True, score_threshold=0.01)
+    average_precisions = evaluate(test_generator, prediction_model,
+                                  visualize=False,
+                                  flip_test=flip_test,
+                                  keep_resolution=keep_resolution,
+                                  score_threshold=score_threshold)
     # compute per class average precision
     total_instances = []
     precisions = []

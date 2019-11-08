@@ -77,7 +77,11 @@ def evaluate_batch_item(batch_item_detections, num_classes, max_objects_per_clas
     return batch_item_detections
 
 
-def decode(hm, wh, reg, max_objects=100, nms=True, num_classes=20, score_threshold=0.1):
+def decode(hm, wh, reg, max_objects=100, nms=True, flip_test=False, num_classes=20, score_threshold=0.1):
+    if flip_test:
+        hm = (hm[0:1] + hm[1:2, :, ::-1]) / 2
+        wh = (wh[0:1] + wh[1:2, :, ::-1]) / 2
+        reg = reg[0:1]
     scores, indices, class_ids, xs, ys = topk(hm, max_objects=max_objects)
     b = tf.shape(hm)[0]
     # (b, h * w, 2)
@@ -107,7 +111,10 @@ def decode(hm, wh, reg, max_objects=100, nms=True, num_classes=20, score_thresho
     return detections
 
 
-def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100, score_threshold=0.1, nms=True):
+def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100, score_threshold=0.1,
+              nms=True,
+              flip_test=False,
+              freeze_bn=True):
     assert backbone in ['resnet18', 'resnet34', 'resnet50']
     output_size = input_size // 4
     image_input = Input(shape=(None, None, 3))
@@ -122,7 +129,7 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
     elif backbone == 'resnet34':
         resnet = ResNet34(image_input, include_top=False, freeze_bn=True)
     else:
-        resnet = ResNet50(image_input, include_top=False, freeze_bn=True)
+        resnet = ResNet50(image_input, include_top=False, freeze_bn=freeze_bn)
 
     # (b, 16, 16, 512)
     C5 = resnet.outputs[-1]
@@ -164,6 +171,7 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
                                          max_objects=max_objects,
                                          score_threshold=score_threshold,
                                          nms=nms,
+                                         flip_test=flip_test,
                                          num_classes=num_classes))([y1, y2, y3])
     prediction_model = Model(inputs=image_input, outputs=detections)
     debug_model = Model(inputs=image_input, outputs=[y1, y2, y3])

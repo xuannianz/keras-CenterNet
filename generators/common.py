@@ -389,7 +389,7 @@ class Generator(keras.utils.Sequence):
             trans_input = get_affine_transform(c, s, self.input_size)
 
             # inputs
-            image = self.preprocess_image(image, c, s)
+            image = self.preprocess_image(image, c, s, tgt_w=self.input_size, tgt_h=self.input_size)
             batch_images[b] = image
 
             # outputs
@@ -468,7 +468,7 @@ class Generator(keras.utils.Sequence):
             # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
             # cv2.imshow('image', image)
             # cv2.waitKey()
-        return [batch_images, batch_hms_2, batch_whs, batch_regs, batch_reg_masks, batch_indices]
+        return [batch_images, batch_hms, batch_whs, batch_regs, batch_reg_masks, batch_indices]
 
     def compute_targets(self, image_group, annotations_group):
         """
@@ -545,9 +545,9 @@ class Generator(keras.utils.Sequence):
         self.current_index = current_index
         return inputs, targets
 
-    def preprocess_image(self, image, c, s):
-        trans_input = get_affine_transform(c, s, (self.input_size, self.input_size))
-        image = cv2.warpAffine(image, trans_input, (self.input_size, self.input_size), flags=cv2.INTER_LINEAR)
+    def preprocess_image(self, image, c, s, tgt_w, tgt_h):
+        trans_input = get_affine_transform(c, s, (tgt_w, tgt_h))
+        image = cv2.warpAffine(image, trans_input, (tgt_w, tgt_h), flags=cv2.INTER_LINEAR)
         image = image.astype(np.float32)
 
         image[..., 0] -= 103.939

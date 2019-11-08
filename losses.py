@@ -9,8 +9,8 @@ def focal_loss(hm_pred, hm_true):
     # 离中心点越近, weights 越小
     neg_weights = tf.pow(1 - hm_true, 4)
 
-    pos_loss = -tf.log(tf.clip_by_value(hm_pred, 1e-7, 1.)) * tf.pow(1 - hm_pred, 2) * pos_mask
-    neg_loss = -tf.log(tf.clip_by_value(1 - hm_pred, 1e-7, 1.)) * tf.pow(hm_pred, 2) * neg_weights * neg_mask
+    pos_loss = -tf.log(tf.clip_by_value(hm_pred, 1e-4, 1. - 1e-4)) * tf.pow(1 - hm_pred, 2) * pos_mask
+    neg_loss = -tf.log(tf.clip_by_value(1 - hm_pred, 1e-4, 1. - 1e-4)) * tf.pow(hm_pred, 2) * neg_weights * neg_mask
 
     num_pos = tf.reduce_sum(pos_mask)
     pos_loss = tf.reduce_sum(pos_loss)
@@ -33,7 +33,7 @@ def reg_l1_loss(y_pred, y_true, indices, mask):
     # tile 是为了和 torch 的实现保持一致, (b, k, 2), 这样 mask 增加了 1 倍
     mask = tf.tile(tf.expand_dims(mask, axis=-1), (1, 1, 2))
     total_loss = tf.reduce_sum(tf.abs(y_true * mask - y_pred * mask))
-    reg_loss = total_loss / (tf.reduce_sum(mask) + 1e-7)
+    reg_loss = total_loss / (tf.reduce_sum(mask) + 1e-4)
     return reg_loss
 
 

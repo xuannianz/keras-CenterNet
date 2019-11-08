@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import argparse
-from datetime import date
+from datetime import date, timedelta
 import keras
 import keras.backend as K
 from keras.optimizers import Adam, SGD
@@ -223,7 +223,7 @@ def parse_args(args):
     """
     Parse the arguments.
     """
-    today = str(date.today())
+    today = str(date.today() + timedelta(days=1))
     parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
     subparsers = parser.add_subparsers(help='Arguments for specific dataset types.', dest='dataset_type')
     subparsers.required = True
@@ -250,7 +250,7 @@ def parse_args(args):
     parser.add_argument('--num_gpus', help='Number of GPUs to use for parallel processing.', type=int, default=0)
     parser.add_argument('--multi-gpu-force', help='Extra flag needed to enable (experimental) multi-gpu support.',
                         action='store_true')
-    parser.add_argument('--epochs', help='Number of epochs to train.', type=int, default=50)
+    parser.add_argument('--epochs', help='Number of epochs to train.', type=int, default=200)
     parser.add_argument('--steps', help='Number of steps per epoch.', type=int, default=10000)
     parser.add_argument('--snapshot-path',
                         help='Path to store snapshots of models during training',
@@ -292,7 +292,8 @@ def main(args=None):
     train_generator, validation_generator = create_generators(args)
 
     num_classes = train_generator.num_classes()
-    model, prediction_model, debug_model = centernet(num_classes=num_classes, input_size=args.input_size)
+    model, prediction_model, debug_model = centernet(num_classes=num_classes, input_size=args.input_size,
+                                                     freeze_bn=False)
 
     # create the model
     print('Loading model, this may take a second...')
