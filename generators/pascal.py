@@ -217,6 +217,19 @@ class PascalVocGenerator(Generator):
 
 
 if __name__ == '__main__':
-    generator = PascalVocGenerator(data_dir='datasets/VOC0712', set_name='train', batch_size=1)
+    from augmentor.misc import MiscEffect
+    from augmentor.color import VisualEffect
+
+    misc_effect = MiscEffect(border_value=0)
+    visual_effect = VisualEffect()
+
+    generator = PascalVocGenerator(
+        'datasets/VOC0712',
+        'trainval',
+        skip_difficult=True,
+        misc_effect=misc_effect,
+        visual_effect=visual_effect,
+        batch_size=1
+    )
     for inputs, targets in generator:
         print('hi')

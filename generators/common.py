@@ -468,7 +468,7 @@ class Generator(keras.utils.Sequence):
             # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
             # cv2.imshow('image', image)
             # cv2.waitKey()
-        return [batch_images, batch_hms, batch_whs, batch_regs, batch_reg_masks, batch_indices]
+        return [batch_images, batch_hms_2, batch_whs, batch_regs, batch_reg_masks, batch_indices]
 
     def compute_targets(self, image_group, annotations_group):
         """

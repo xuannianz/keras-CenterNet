@@ -277,15 +277,15 @@ if __name__ == '__main__':
     from models.resnet import centernet
     import os
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     test_generator = PascalVocGenerator(
-        'datasets/VOC0712',
-        'val',
+        'datasets/VOC2007',
+        'test',
         shuffle_groups=False,
         skip_truncated=False,
         skip_difficult=True,
     )
-    model_path = 'checkpoints/2019-11-08/pascal_98_2.1213_3.2589_0.6670.h5'
+    model_path = 'checkpoints/2019-11-10/pascal_81_1.5415_3.0741_0.6860_0.7057_0.7209.h5'
     num_classes = test_generator.num_classes()
     flip_test = True
     nms = True
@@ -294,6 +294,7 @@ if __name__ == '__main__':
     model, prediction_model, debug_model = centernet(num_classes=num_classes,
                                                      nms=nms,
                                                      flip_test=flip_test,
+                                                     freeze_bn=True,
                                                      score_threshold=score_threshold)
     prediction_model.load_weights(model_path, by_name=True, skip_mismatch=True)
     # inputs, targets = test_generator.__getitem__(0)

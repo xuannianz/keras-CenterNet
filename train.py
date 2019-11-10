@@ -139,7 +139,7 @@ def create_generators(args):
 
     # create random transform generator for augmenting training data
     if args.random_transform:
-        misc_effect = MiscEffect()
+        misc_effect = MiscEffect(border_value=0)
         visual_effect = VisualEffect()
     else:
         misc_effect = None
@@ -223,7 +223,7 @@ def parse_args(args):
     """
     Parse the arguments.
     """
-    today = str(date.today() + timedelta(days=1))
+    today = str(date.today() + timedelta(days=0))
     parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
     subparsers = parser.add_subparsers(help='Arguments for specific dataset types.', dest='dataset_type')
     subparsers.required = True
@@ -293,7 +293,7 @@ def main(args=None):
 
     num_classes = train_generator.num_classes()
     model, prediction_model, debug_model = centernet(num_classes=num_classes, input_size=args.input_size,
-                                                     freeze_bn=False)
+                                                     freeze_bn=True)
 
     # create the model
     print('Loading model, this may take a second...')
@@ -302,11 +302,13 @@ def main(args=None):
     # freeze layers
     if args.freeze_backbone:
         for i in range(190):
+        # for i in range(175):
             model.layers[i].trainable = False
 
     # compile model
     model.compile(optimizer=Adam(lr=1e-3), loss={'centernet_loss': lambda y_true, y_pred: y_pred})
-    # model.compile(optimizer=SGD(lr=1e-6, momentum=0.9, nesterov=True, decay=1e-5), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+    # model.compile(optimizer=SGD(lr=1e-5, momentum=0.9, nesterov=True, decay=1e-5),
+    #               loss={'centernet_loss': lambda y_true, y_pred: y_pred})
 
     # print model summary
     # print(model.summary())

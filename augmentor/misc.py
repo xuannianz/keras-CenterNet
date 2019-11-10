@@ -1,13 +1,13 @@
 import cv2
 import numpy as np
-from augmentor.transform import translation_xy, change_transform_origin
+from augmentor.transform import translation_xy, change_transform_origin, scaling_xy
 
 ROTATE_DEGREE = [90, 180, 270]
 
 
-def rotate(image, boxes, prob=0.5):
+def rotate(image, boxes, prob=0.5, border_value=(128, 128, 128)):
     random_prob = np.random.uniform()
-    if random_prob < prob:
+    if random_prob < (1 - prob):
         return image, boxes
     rotate_degree = ROTATE_DEGREE[np.random.randint(0, 3)]
     h, w = image.shape[:2]
@@ -32,7 +32,7 @@ def rotate(image, boxes, prob=0.5):
 
     # Rotate the image.
     image = cv2.warpAffine(image, M=M, dsize=(new_w, new_h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT,
-                           borderValue=(128, 128, 128))
+                           borderValue=border_value)
 
     new_boxes = []
     for box in boxes:
@@ -58,7 +58,7 @@ def rotate(image, boxes, prob=0.5):
 
 def crop(image, boxes, prob=0.5):
     random_prob = np.random.uniform()
-    if random_prob < prob:
+    if random_prob < (1 - prob):
         return image, boxes
     h, w = image.shape[:2]
     min_x1, min_y1 = np.min(boxes, axis=0)[:2]
@@ -75,7 +75,7 @@ def crop(image, boxes, prob=0.5):
 
 def flipx(image, boxes, prob=0.5):
     random_prob = np.random.uniform()
-    if random_prob < prob:
+    if random_prob < (1 - prob):
         return image, boxes
     image = image[:, ::-1]
     h, w = image.shape[:2]
@@ -85,9 +85,21 @@ def flipx(image, boxes, prob=0.5):
     return image, boxes
 
 
-def translate(image, boxes, prob=0.5):
+def multi_scale(image, boxes, prob=1.):
     random_prob = np.random.uniform()
-    if random_prob < prob:
+    if random_prob < (1 - prob):
+        return image, boxes
+    h, w = image.shape[:2]
+    scale = np.random.choice(np.arange(0.7, 1.4, 0.1))
+    nh, nw = int(round(h * scale)), int(round(w * scale))
+    image = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_LINEAR)
+    boxes = np.round(boxes * scale).astype(np.int32)
+    return image, boxes
+
+
+def translate(image, boxes, prob=0.5, border_value=(128, 128, 128)):
+    random_prob = np.random.uniform()
+    if random_prob < (1 - prob):
         return image, boxes
     h, w = image.shape[:2]
     min_x1, min_y1 = np.min(boxes, axis=0)[:2]
@@ -102,7 +114,7 @@ def translate(image, boxes, prob=0.5):
         dsize=(w, h),
         flags=cv2.INTER_CUBIC,
         borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(128, 128, 128),
+        borderValue=border_value,
     )
     new_boxes = []
     for box in boxes:
@@ -120,17 +132,21 @@ def translate(image, boxes, prob=0.5):
 
 
 class MiscEffect:
-    def __init__(self, rotate_prob=0.9, flip_prob=0.5, crop_prob=0.5, translate_prob=0.5):
+    def __init__(self, multi_scale_prob=0.5, rotate_prob=0.05, flip_prob=0.5, crop_prob=0.5, translate_prob=0.5,
+                 border_value=(128, 128, 128)):
+        self.multi_scale_prob = multi_scale_prob
         self.rotate_prob = rotate_prob
         self.flip_prob = flip_prob
         self.crop_prob = crop_prob
         self.translate_prob = translate_prob
+        self.border_value = border_value
 
     def __call__(self, image, boxes):
-        image, boxes = rotate(image, boxes, prob=self.rotate_prob)
+        image, boxes = multi_scale(image, boxes, prob=self.multi_scale_prob)
+        image, boxes = rotate(image, boxes, prob=self.rotate_prob, border_value=self.border_value)
         image, boxes = flipx(image, boxes, prob=self.flip_prob)
         image, boxes = crop(image, boxes, prob=self.crop_prob)
-        image, boxes = translate(image, boxes, prob=self.translate_prob)
+        image, boxes = translate(image, boxes, prob=self.translate_prob, border_value=self.border_value)
         return image, boxes
 
 
@@ -153,16 +169,13 @@ if __name__ == '__main__':
         for box in boxes.astype(np.int32):
             cv2.rectangle(image, (box[0], box[1]), (box[2], box[3]), (0, 0, 255), 2)
         src_image = image.copy()
-        cv2.namedWindow('src_image', cv2.WINDOW_NORMAL)
+        # cv2.namedWindow('src_image', cv2.WINDOW_NORMAL)
         cv2.imshow('src_image', src_image)
         # image, boxes = misc_effect(image, boxes)
-        print(image.shape)
-        print(boxes)
-        image, boxes = flipx(image, boxes)
-        print(boxes)
+        image, boxes = multi_scale(image, boxes)
         image = image.copy()
         for box in boxes.astype(np.int32):
             cv2.rectangle(image, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 1)
-        cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+        # cv2.namedWindow('image', cv2.WINDOW_NORMAL)
         cv2.imshow('image', image)
         cv2.waitKey(0)

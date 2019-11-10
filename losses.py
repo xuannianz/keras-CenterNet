@@ -16,9 +16,6 @@ def focal_loss(hm_pred, hm_true):
     pos_loss = tf.reduce_sum(pos_loss)
     neg_loss = tf.reduce_sum(neg_loss)
 
-    num_pos = tf.Print(num_pos, [num_pos], message='\nnum_pos: ')
-    pos_loss = tf.Print(pos_loss, [pos_loss], message='\npos_loss: ')
-    neg_loss = tf.Print(neg_loss, [neg_loss], message='\nneg_loss: ')
     cls_loss = tf.cond(tf.greater(num_pos, 0), lambda: (pos_loss + neg_loss) / num_pos, lambda: neg_loss)
     return cls_loss
 
@@ -43,7 +40,6 @@ def loss(args):
     wh_loss = 0.1 * reg_l1_loss(wh_pred, wh_true, indices, reg_mask)
     reg_loss = reg_l1_loss(reg_pred, reg_true, indices, reg_mask)
     total_loss = hm_loss + wh_loss + reg_loss
-    total_loss = tf.Print(total_loss, [hm_loss, wh_loss, reg_loss], message='\nloss: ')
     return total_loss
 
 
