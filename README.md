@@ -3,7 +3,7 @@ This is an implementation of [CenterNet](https://arxiv.org/abs/1904.07850) for o
 and the official implementation [xingyizhou/CenterNet](https://github.com/xingyizhou/CenterNet). 
 Thanks for their hard work. 
 
-The network is anchor-free. It is quite simple, fast and accuracy. 
+The network is anchor-free. It is quite simple, fast and accurate. 
 
 ## Test
 1. I trained on Pascal VOC2012 trainval.txt + Pascal VOC2007 train.txt, and validated on Pascal VOC2007 val.txt. There are 14041 images for training and 2510 images for validation.
