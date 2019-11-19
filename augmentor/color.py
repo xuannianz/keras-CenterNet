@@ -37,7 +37,6 @@ def sharpness(image, prob=0.5, min=0, max=2, factor=None):
     if random_prob > prob:
         return image
     if factor is None:
-        # 0 模糊一点, 1 原图, 2 清晰一点
         factor = np.random.uniform(min, max)
     image = Image.fromarray(image[..., ::-1])
     enhancer = ImageEnhance.Sharpness(image)
@@ -50,7 +49,6 @@ def color(image, prob=0.5, min=0., max=1., factor=None):
     if random_prob > prob:
         return image
     if factor is None:
-        # factor=0 返回黑白色, factor=1 返回原图
         factor = np.random.uniform(min, max)
     image = Image.fromarray(image[..., ::-1])
     enhancer = ImageEnhance.Color(image)
@@ -63,7 +61,6 @@ def contrast(image, prob=0.5, min=0.2, max=1., factor=None):
     if random_prob > prob:
         return image
     if factor is None:
-        # factor=0 返回灰色, factor=1 返回原图
         factor = np.random.uniform(min, max)
     image = Image.fromarray(image[..., ::-1])
     enhancer = ImageEnhance.Contrast(image)
@@ -76,7 +73,6 @@ def brightness(image, prob=0.5, min=0.8, max=1., factor=None):
     if random_prob > prob:
         return image
     if factor is None:
-        # factor=0 返回全黑色, factor=1 返回原图
         factor = np.random.uniform(min, max)
     image = Image.fromarray(image[..., ::-1])
     enhancer = ImageEnhance.Brightness(image)

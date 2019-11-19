@@ -92,7 +92,6 @@ class PascalVocGenerator(Generator):
         self.data_dir = data_dir
         self.set_name = set_name
         self.classes = classes
-        # split 的参数可以参考其注释, sep=None 表示 whitespace 都可以作为其分隔符
         self.image_names = [l.strip().split(None, 1)[0] for l in
                             open(os.path.join(data_dir, 'ImageSets', 'Main', set_name + '.txt')).readlines()]
         self.image_extension = image_extension

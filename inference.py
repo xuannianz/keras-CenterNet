@@ -74,10 +74,6 @@ for i in range(10):
         color = colors[class_id]
         class_name = classes[class_id]
         label = '-'.join([class_name, score])
-        # ret[0] 表示包围 text 的矩形框的 width
-        # ret[1] 表示包围 text 的矩形框的 height
-        # baseline 表示的 text 最底下一个像素到文本 baseline 的距离
-        # 文本 baseline 参考 https://blog.csdn.net/u010970514/article/details/84075776
         ret, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         cv2.rectangle(src_image, (xmin, ymin), (xmax, ymax), color, 1)
         cv2.rectangle(src_image, (xmin, ymax - ret[1] - baseline), (xmin + ret[0], ymax), color, -1)

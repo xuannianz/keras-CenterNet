@@ -21,8 +21,7 @@ import json
 from tqdm import trange
 import cv2
 
-from yolo.generators.coco import CocoGenerator
-from yolo.model import yolo_body
+from generators.coco import CocoGenerator
 
 
 def evaluate_coco(generator, model, threshold=0.05):
@@ -77,7 +76,8 @@ def evaluate_coco(generator, model, threshold=0.05):
             class_name = generator.label_to_name(class_id)
             ret, baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             cv2.rectangle(src_image, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (0, 255, 0), 1)
-            cv2.putText(src_image, class_name, (box[0], box[1] + box[3] - baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+            cv2.putText(src_image, class_name, (box[0], box[1] + box[3] - baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (0, 0, 0), 1)
         cv2.namedWindow('image', cv2.WINDOW_NORMAL)
         cv2.imshow('image', src_image)
         cv2.waitKey(0)
@@ -147,32 +147,3 @@ class CocoEval(keras.callbacks.Callback):
                 summary_value.tag = '{}. {}'.format(index + 1, coco_tag[index])
                 self.tensorboard.writer.add_summary(summary, epoch)
                 logs[coco_tag[index]] = result
-
-
-if __name__ == '__main__':
-    dataset_dir = '/home/adam/.keras/datasets/coco/2017_118_5'
-    test_generator = CocoGenerator(
-        anchors_path='yolo/yolo_anchors.txt',
-        data_dir=dataset_dir,
-        set_name='test-dev2017',
-        shuffle_groups=False,
-    )
-    input_shape = (416, 416)
-    model, prediction_model = yolo_body(test_generator.anchors, num_classes=80)
-    model.load_weights('yolo/checkpoints/yolov3_weights.h5', by_name=True)
-    coco_eval_stats = evaluate_coco(test_generator, model)
-    coco_tag = ['AP @[ IoU=0.50:0.95 | area=   all | maxDets=100 ]',
-                'AP @[ IoU=0.50      | area=   all | maxDets=100 ]',
-                'AP @[ IoU=0.75      | area=   all | maxDets=100 ]',
-                'AP @[ IoU=0.50:0.95 | area= small | maxDets=100 ]',
-                'AP @[ IoU=0.50:0.95 | area=medium | maxDets=100 ]',
-                'AP @[ IoU=0.50:0.95 | area= large | maxDets=100 ]',
-                'AR @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ]',
-                'AR @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ]',
-                'AR @[ IoU=0.50:0.95 | area=   all | maxDets=100 ]',
-                'AR @[ IoU=0.50:0.95 | area= small | maxDets=100 ]',
-                'AR @[ IoU=0.50:0.95 | area=medium | maxDets=100 ]',
-                'AR @[ IoU=0.50:0.95 | area= large | maxDets=100 ]']
-    if coco_eval_stats is not None:
-        for index, result in enumerate(coco_eval_stats):
-            print([coco_tag[index]], result)

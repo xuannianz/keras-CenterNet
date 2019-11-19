@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from yolo.generators.common import Generator
+from generators.common import Generator
 import os
 import numpy as np
 from pycocotools.coco import COCO
@@ -49,13 +49,11 @@ class CocoGenerator(Generator):
         Loads the class to label mapping (and inverse) for COCO.
         """
         # load class names (name -> label)
-        # [{'supercategory':'person', 'id':1, 'name':'person'}, ...], 一共 80 个元素
+        # [{'supercategory':'person', 'id':1, 'name':'person'}, ...]
         categories = self.coco.loadCats(self.coco.getCatIds())
-        # 根据 id 排序
         categories.sort(key=lambda x: x['id'])
 
         self.classes = {}
-        # coco 的真值文件中 class_id 是从 1 开始的, 对应 generator 中的 class_id 为 0
         self.coco_labels = {}
         self.coco_labels_inverse = {}
         for c in categories:

@@ -7,18 +7,6 @@ def get_affine_transform(center,
                          output_size,
                          rot=0.,
                          inv=False):
-    """
-
-    Args:
-        center: 原图的中心点坐标
-        scale: 原图最大边长
-        output_size: 输出图片的大小
-        rot: 旋转弧度
-        inv: 变换的方向
-
-    Returns:
-
-    """
     if not isinstance(scale, np.ndarray) and not isinstance(scale, list) and not isinstance(scale, tuple):
         scale = np.array([scale, scale], dtype=np.float32)
 
@@ -33,19 +21,15 @@ def get_affine_transform(center,
     dst_h = output_size[1]
 
     rot_rad = np.pi * rot / 180
-    # 表示的以坐标原点为中心点的正方形的, (0, -h/2) 这个点
     src_dir = get_dir([0, src_h * -0.5], rot_rad)
     dst_dir = np.array([0, dst_h * -0.5], np.float32)
 
     src = np.zeros((3, 2), dtype=np.float32)
     dst = np.zeros((3, 2), dtype=np.float32)
-    # 不考虑 shift, 表示的是原图和输出图的中心点
     src[0, :] = center
-    # 不考虑 shift, 表示的是原图和输出图的中心点正上方的点
     src[1, :] = center + src_dir
     dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
     dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5], np.float32) + dst_dir
-    # 左上方的点
     src[2:, :] = get_3rd_point(src[0, :], src[1, :])
     dst[2:, :] = get_3rd_point(dst[0, :], dst[1, :])
 
@@ -66,17 +50,12 @@ def draw_gaussian(heatmap, center, radius_h, radius_w, k=1):
 
     height, width = heatmap.shape[0:2]
 
-    # left 表示中心点到 masked 区域最左边的距离
-    # right 表示中心点到 masked 区域最右边的距离
     left, right = min(x, radius_w), min(width - x, radius_w + 1)
-    # top 表示中心点到 masked 区域最上边的距离
-    # bottom 表示中心点到 masked 区域最下边的距离
     top, bottom = min(y, radius_h), min(height - y, radius_h + 1)
 
     masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
     masked_gaussian = gaussian[radius_h - top:radius_h + bottom, radius_w - left:radius_w + right]
     if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
-        # 这里就是同一个类的多个目标的高斯核发生重叠取最大值
         np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
     return heatmap
 
@@ -89,17 +68,12 @@ def draw_gaussian_2(heatmap, center, radius, k=1):
 
     height, width = heatmap.shape[0:2]
 
-    # left 表示中心点到 masked 区域最左边的距离
-    # right 表示中心点到 masked 区域最右边的距离
     left, right = min(x, radius), min(width - x, radius + 1)
-    # top 表示中心点到 masked 区域最上边的距离
-    # bottom 表示中心点到 masked 区域最下边的距离
     top, bottom = min(y, radius), min(height - y, radius + 1)
 
     masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
     masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right]
     if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
-        # 这里就是同一个类的多个目标的高斯核发生重叠取最大值
         np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
     return heatmap
 

@@ -34,10 +34,8 @@ def makedirs(path):
     # pass if the directory exists already, fails otherwise.
     # Meant for Python 2.7/3.n compatibility.
     try:
-        # 如果 path 已经存在, 会抛 FileExistsError
         os.makedirs(path)
     except OSError:
-        # 如果已经存在, 且不是目录, 那么再次抛出异常
         if not os.path.isdir(path):
             raise
 
@@ -94,7 +92,6 @@ def create_callbacks(training_model, prediction_model, validation_generator, arg
         callbacks.append(evaluation)
 
     # save the model
-    # --no-snapshots 的 dest 是 snapshots
     if args.snapshots:
         # ensure directory created first; otherwise h5py will error after epoch.
         makedirs(args.snapshot_path)
@@ -245,7 +242,6 @@ def parse_args(args):
     parser.add_argument('--freeze-backbone', help='Freeze training of backbone layers.', action='store_true')
 
     parser.add_argument('--batch-size', help='Size of the batches.', default=1, type=int)
-    # NOTE: nvidia-smi 和 tensorflow 中的 gpu id 可能不一致
     parser.add_argument('--gpu', help='Id of the GPU to use (as reported by nvidia-smi).')
     parser.add_argument('--num_gpus', help='Number of GPUs to use for parallel processing.', type=int, default=0)
     parser.add_argument('--multi-gpu-force', help='Extra flag needed to enable (experimental) multi-gpu support.',

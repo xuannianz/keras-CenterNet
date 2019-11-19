@@ -62,7 +62,6 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
                     keep_resolution=False):
     """
     Get the detections from the model using the generator.
-    依次获取每个图像上 detections, 对每个 detection 进行归类
 
     The result is a list of lists such that the size is:
         all_detections[num_images][num_classes] = detections[num_class_detections, 5]
@@ -78,8 +77,6 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
         A list of lists containing the detections for each image in the generator.
 
     """
-    # generator.size() 返回的是 generator image 的数量
-    # 外层 list 有 generator.size() 个元素, 内层 list 有 generator.num_classes() 个元素
     all_detections = [[None for i in range(generator.num_classes()) if generator.has_label(i)] for j in
                       range(generator.size())]
 
@@ -143,7 +140,6 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
 def _get_annotations(generator):
     """
     Get the ground truth annotations from the generator.
-    依次获取每个图像上 gt_boxes, 对每个 gt_box 进行归类
 
     The result is a list of lists such that the size is:
         all_annotations[num_images][num_classes] = annotations[num_class_annotations, 5]
@@ -231,11 +227,8 @@ def evaluate(
                     false_positives = np.append(false_positives, 1)
                     true_positives = np.append(true_positives, 0)
                     continue
-                # 计算某个图像上的某个类的一个 detection 和所有 annotations 的 overlap
                 overlaps = compute_overlap(np.expand_dims(d, axis=0), annotations)
-                # 和此 detection 有最大 overlap 的 annotation 的 id
                 assigned_annotation = np.argmax(overlaps, axis=1)
-                # 此 detection 和所有 annotation 的最大 overlap
                 max_overlap = overlaps[0, assigned_annotation]
 
                 if max_overlap >= iou_threshold and assigned_annotation not in detected_annotations:
@@ -262,7 +255,6 @@ def evaluate(
 
         # compute recall and precision
         recall = true_positives / num_annotations
-        # np.finfo(np.float64).eps 能表示的最小的正数
         precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
 
         # compute average precision

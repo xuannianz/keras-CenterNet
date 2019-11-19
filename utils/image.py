@@ -149,7 +149,6 @@ def apply_transform(matrix, image, params):
     """
     output = cv2.warpAffine(
         image,
-        # warpAffine 只需要前面 2*3 的矩阵
         matrix[:2, :],
         dsize=(image.shape[1], image.shape[0]),
         flags=params.cvInterpolation(),
@@ -333,7 +332,6 @@ def adjust_contrast(image, factor):
         image: Image to adjust.
         factor: A factor for adjusting contrast.
     """
-    # 求每一个 channel 的均值
     mean = image.mean(axis=0).mean(axis=0)
     return _clip((image - mean) * factor + mean)
 

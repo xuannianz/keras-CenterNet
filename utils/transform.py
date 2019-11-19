@@ -71,8 +71,6 @@ def _random_vector(min, max, prng=DEFAULT_PRNG):
     max = np.array(max)
     assert min.shape == max.shape
     assert len(min.shape) == 1
-    # 这个非常厉害, 可以用于数组, 生成 (n, ) 的随机数组
-    # 每个位置的元素的最大值对应 max 数组的元素, 最小值对应 min 数组的元素
     return prng.uniform(min, max)
 
 
@@ -178,8 +176,6 @@ def scaling(factor):
         the zoom matrix as 3 by 3 numpy array
     """
 
-    # 值得学习的一点是, factor[0] 为 -1 时, 可以实现水平方向的翻转
-    # factor[1] 为 -1 时, 可以实现竖直方向的翻转
     return np.array([
         [factor[0], 0, 0],
         [0, factor[1], 0],
@@ -214,9 +210,6 @@ def random_flip(flip_x_chance, flip_y_chance, prng=DEFAULT_PRNG):
     """
     flip_x = prng.uniform(0, 1) < flip_x_chance
     flip_y = prng.uniform(0, 1) < flip_y_chance
-    # 1 - 2 * bool gives 1 for False and -1 for True.
-    # 当 flip_x 为 False 时, 1 - 2 * flip_x 为 1, 不进行水平翻转
-    # 当 flip_x 为 True 时, 1 - 2 * flip_x 为 -1, 进行垂直翻转
     return scaling((1 - 2 * flip_x, 1 - 2 * flip_y))
 
 
@@ -319,9 +312,6 @@ def random_transform_generator(prng=None, **kwargs):
 
     if prng is None:
         # RandomState automatically seeds using the best available method.
-        # 提供一些生成随机数的方法, 功能和 np.random, random 相似, 接受 seed 作为参数
-        # seed 为 None 时, 每次生成不同的 seed
-        # 当 seed 指定时, 每次生成的随机数相同
         prng = np.random.RandomState()
 
     while True:

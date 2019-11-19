@@ -33,9 +33,6 @@ class Generator(keras.utils.Sequence):
         Args:
             batch_size: The size of the batches to generate.
             group_method: Determines how images are grouped together (defaults to 'ratio', one of ('none', 'random', 'ratio')).
-                ratio 指的是对所有图片按 aspect_ratio 进行排序
-                random 指的是随机生成一种顺序
-                Note: group 的概念就是把图片按照 group_method 的方式排序, 然后一个 batch 作为一个 group
             shuffle_groups: If True, shuffles the groups each epoch.
             input_size:
             max_objects:
@@ -123,7 +120,7 @@ class Generator(keras.utils.Sequence):
         """
         Load annotations for all images in group.
         """
-        # load_annotations 返回的样式是  {'labels': np.array, 'annotations': np.array}
+        # load_annotations {'labels': np.array, 'annotations': np.array}
         annotations_group = [self.load_annotations(image_index) for image_index in group]
         for annotations in annotations_group:
             assert (isinstance(annotations,
@@ -144,7 +141,6 @@ class Generator(keras.utils.Sequence):
         for index, (image, annotations) in enumerate(zip(image_group, annotations_group)):
             # test x2 < x1 | y2 < y1 | x1 < 0 | y1 < 0 | x2 <= 0 | y2 <= 0 | x2 >= image.shape[1] | y2 >= image.shape[0]
             invalid_indices = np.where(
-                # np.array 之间的 or 可以使用 |
                 (annotations['bboxes'][:, 2] <= annotations['bboxes'][:, 0]) |
                 (annotations['bboxes'][:, 3] <= annotations['bboxes'][:, 1]) |
                 (annotations['bboxes'][:, 0] < 0) |
@@ -162,7 +158,6 @@ class Generator(keras.utils.Sequence):
                     image.shape,
                     annotations['bboxes'][invalid_indices, :]
                 ))
-                # keys() 有两个值, 一个是 labels, 一个是 bboxes
                 for k in annotations_group[index].keys():
                     annotations_group[index][k] = np.delete(annotations[k], invalid_indices, axis=0)
             if annotations['bboxes'].shape[0] == 0:
@@ -192,14 +187,12 @@ class Generator(keras.utils.Sequence):
             annotations['bboxes'][:, 3] = np.clip(annotations['bboxes'][:, 3], 1, image_height - 1)
             # test x2 < x1 | y2 < y1 | x1 < 0 | y1 < 0 | x2 <= 0 | y2 <= 0 | x2 >= image.shape[1] | y2 >= image.shape[0]
             small_indices = np.where(
-                # np.array 之间的 or 可以使用 |
                 (annotations['bboxes'][:, 2] - annotations['bboxes'][:, 0] < 10) |
                 (annotations['bboxes'][:, 3] - annotations['bboxes'][:, 1] < 10)
             )[0]
 
             # delete invalid indices
             if len(small_indices):
-                # keys() 有两个值, 一个是 labels, 一个是 bboxes
                 for k in annotations_group[index].keys():
                     annotations_group[index][k] = np.delete(annotations[k], small_indices, axis=0)
                 # import cv2
@@ -377,9 +370,7 @@ class Generator(keras.utils.Sequence):
                                dtype=np.float32)
         batch_whs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
         batch_regs = np.zeros((len(image_group), self.max_objects, 2), dtype=np.float32)
-        # bbox 缩小后会计算并且判断其 h, w 是否大小 0, 此举会过滤掉那些比较小的 bbox, 也就不需要参与 loss 计算
         batch_reg_masks = np.zeros((len(image_group), self.max_objects), dtype=np.float32)
-        # bbox 中心点在 hm 上的下标 cy * w + cx
         batch_indices = np.zeros((len(image_group), self.max_objects), dtype=np.float32)
 
         # copy all images to the upper left part of the image batch object
@@ -394,14 +385,12 @@ class Generator(keras.utils.Sequence):
 
             # outputs
             bboxes = annotations['bboxes']
-            # 按道理不该有这种情况
             assert bboxes.shape[0] != 0
             class_ids = annotations['labels']
             assert class_ids.shape[0] != 0
 
             trans_output = get_affine_transform(c, s, self.output_size)
             for i in range(bboxes.shape[0]):
-                # 不想修改原来的 annotations 中的 bboxes
                 bbox = bboxes[i].copy()
                 cls_id = class_ids[i]
                 # (x1, y1)
@@ -423,9 +412,7 @@ class Generator(keras.utils.Sequence):
                     draw_gaussian(batch_hms[b, :, :, cls_id], ct_int, radius_h, radius_w)
                     draw_gaussian_2(batch_hms_2[b, :, :, cls_id], ct_int, radius)
                     batch_whs[b, i] = 1. * w, 1. * h
-                    # 中心点所在的像素的下标
                     batch_indices[b, i] = ct_int[1] * self.output_size + ct_int[0]
-                    # 中心点的偏移量
                     batch_regs[b, i] = ct - ct_int
                     batch_reg_masks[b, i] = 1
 

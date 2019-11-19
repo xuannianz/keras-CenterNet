@@ -39,7 +39,6 @@ def evaluate_batch_item(batch_item_detections, num_classes, max_objects_per_clas
                         iou_threshold=0.5, score_threshold=0.1):
     batch_item_detections = tf.boolean_mask(batch_item_detections,
                                             tf.greater(batch_item_detections[:, 4], score_threshold))
-    # 每一个元素表示一个 batch_item 上属于某一个类的 boxes
     detections_per_class = []
     for cls_id in range(num_classes):
         # (num_keep_this_class_boxes, 4) score 大于 score_threshold 的当前 class 的 boxes
@@ -51,7 +50,6 @@ def evaluate_batch_item(batch_item_detections, num_classes, max_objects_per_clas
         class_detections = K.gather(class_detections, nms_keep_indices)
         detections_per_class.append(class_detections)
 
-    # score 大于 score_threshold 的所有 class 的 boxes
     batch_item_detections = K.concatenate(detections_per_class, axis=0)
 
     def filter():
@@ -205,44 +203,3 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
     prediction_model = Model(inputs=image_input, outputs=detections)
     debug_model = Model(inputs=image_input, outputs=[y1, y2, y3])
     return model, prediction_model, debug_model
-
-
-if __name__ == '__main__':
-    import numpy as np
-
-    model, *_ = centernet(num_classes=20)
-    for i in range(len(model.layers)):
-        print(i, model.layers[i])
-
-    #
-    # hm = np.load('/home/adam/workspace/github/xuannianz/CenterNet/hm.npy')
-    # hm = np.transpose(hm, (0, 2, 3, 1))
-    # wh = np.load('/home/adam/workspace/github/xuannianz/CenterNet/wh.npy')
-    # wh = np.transpose(wh, (0, 2, 3, 1))
-    # reg = np.load('/home/adam/workspace/github/xuannianz/CenterNet/reg.npy')
-    # reg = np.transpose(reg, (0, 2, 3, 1))
-    # tf_dets = decode(tf.constant(hm), tf.constant(wh), tf.constant(reg))
-    # sess = tf.Session()
-    # print(sess.run(tf_dets[0, :5]))
-    # dets = np.load('/home/adam/workspace/github/xuannianz/CenterNet/dets.npy')
-    # print(dets[0, :5])
-
-    # y1 = np.load('y1.npy')
-    # y2 = np.load('y2.npy')
-    # y3 = np.load('y3.npy')
-    # tf_dets, scores = decode(tf.constant(y1), tf.constant(y2), tf.constant(y3))
-    # scores, *_ = topk(tf.constant(hm))
-    # hm = nms(y1)
-    # sess = tf.Session()
-    # print(sess.run(tf_dets))
-    # print(sess.run(tf.reduce_sum(hm)))
-    # hm = nms(tf.constant(y1))
-    # print(K.eval(hm))
-
-    # detections = np.load('debug/1106/detections.npy')
-    # detections = tf.constant(detections)
-    # detections = tf.map_fn(lambda x: evaluate_batch_item(x[0],
-    #                                                      num_classes=20,
-    #                                                      score_threshold=0.1),
-    #                        elems=[detections],
-    #                        dtype=tf.float32)

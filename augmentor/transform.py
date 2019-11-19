@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import numpy as np
+import cv2
 
 identity_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
@@ -44,9 +45,6 @@ def transform_aabb(transform_matrix, aabb):
     """
     x1, y1, x2, y2 = aabb
     # Transform all 4 corners of the AABB.
-    # points shape (3, 4), 第一行表示 4 个点 x 坐标, 第二行表示 4 个点的 y 坐标, 最后一行是 4 个 1
-    # min(axis=1) 得到三个数, 第一个数是第一行的最小数, 表示最小的 x, 第二个数表示最小的 y, 最后一个数是 1
-    # max(axis=1) 也得到三个数, 第一个数是第一行的最大数, 表示最大的 x, 第二个数表示最大的 y, 最后一个数是 1
     points = transform_matrix.dot([
         [x1, x2, x1, x2],
         [y1, y2, y2, y1],
@@ -78,8 +76,6 @@ def random_vector(min, max):
     max = np.array(max)
     assert min.shape == max.shape
     assert len(min.shape) == 1
-    # 这个非常厉害, 可以用于数组, 生成 (n, ) 的随机数组
-    # 每个位置的元素的最大值对应 max 数组的元素, 最小值对应 min 数组的元素
     return np.random.uniform(min, max)
 
 
@@ -237,8 +233,6 @@ def scaling_x(min=0.9, max=1.1, prob=0.5):
         the zoom matrix as 3 by 3 numpy array
     """
 
-    # 值得学习的一点是, factor[0] 为 -1 时, 可以实现水平方向的翻转
-    # factor[1] 为 -1 时, 可以实现竖直方向的翻转
     random_prob = np.random.uniform()
     if random_prob > prob:
         # angle: the shear angle in radians
@@ -262,8 +256,6 @@ def scaling_y(min=0.9, max=1.1, prob=0.5):
         the zoom matrix as 3 by 3 numpy array
     """
 
-    # 值得学习的一点是, factor[0] 为 -1 时, 可以实现水平方向的翻转
-    # factor[1] 为 -1 时, 可以实现竖直方向的翻转
     random_prob = np.random.uniform()
     if random_prob > prob:
         # angle: the shear angle in radians
@@ -288,8 +280,6 @@ def scaling_xy(min=(0.9, 0.9), max=(1.1, 1.1), prob=0.5):
         the zoom matrix as 3 by 3 numpy array
     """
 
-    # 值得学习的一点是, factor[0] 为 -1 时, 可以实现水平方向的翻转
-    # factor[1] 为 -1 时, 可以实现竖直方向的翻转
     random_prob = np.random.uniform()
     if random_prob > prob:
         # factor: a 2D vector for X and Y scaling
@@ -316,8 +306,6 @@ def flip_x(prob=0.8):
     random_prob = np.random.uniform()
     if random_prob > prob:
         # 1 - 2 * bool gives 1 for False and -1 for True.
-        # 当 flip_x 为 False 时, 1 - 2 * flip_x 为 1, 不进行水平翻转
-        # 当 flip_x 为 True 时, 1 - 2 * flip_x 为 -1, 进行垂直翻转
         return np.array([
             [-1, 0, 0],
             [0, 1, 0],
@@ -340,8 +328,6 @@ def flip_y(prob=0.8):
     random_prob = np.random.uniform()
     if random_prob > prob:
         # 1 - 2 * bool gives 1 for False and -1 for True.
-        # 当 flip_x 为 False 时, 1 - 2 * flip_x 为 1, 不进行水平翻转
-        # 当 flip_x 为 True 时, 1 - 2 * flip_x 为 -1, 进行垂直翻转
         return np.array([
             [1, 0, 0],
             [0, -1, 0],
@@ -528,7 +514,6 @@ def apply_transform(matrix, image, params):
     """
     output = cv2.warpAffine(
         image,
-        # warpAffine 只需要前面 2*3 的矩阵
         matrix[:2, :],
         dsize=(image.shape[1], image.shape[0]),
         flags=params.cvInterpolation(),
@@ -536,42 +521,3 @@ def apply_transform(matrix, image, params):
         borderValue=params.cval,
     )
     return output
-
-
-if __name__ == '__main__':
-    from yolo.utils.image import apply_transform, adjust_transform_for_image, TransformParameters
-    from yolo.generators.pascal import PascalVocGenerator
-    import cv2
-
-    transform_generator = random_transform_generator(
-        min_rotation=-0.2,
-        max_rotation=0.2,
-        min_translation=(-0.1, -0.1),
-        max_translation=(0.1, 0.1),
-        min_shear=-0.2,
-        max_shear=0.2,
-        min_scaling=(0.9, 0.9),
-        max_scaling=(1.1, 1.1),
-    )
-    transform_parameters = TransformParameters(fill_mode='constant', cval=(128, 128, 128))
-    train_generator = PascalVocGenerator(
-        'datasets/voc_trainval/VOC0712',
-        'trainval',
-        skip_difficult=True,
-        transform_generator=transform_generator,
-        anchors_path='yolo/voc_anchors_416.txt',
-        batch_size=1,
-        transform_parameters=transform_parameters
-    )
-    for i in range(len(train_generator)):
-        group = train_generator.groups[i]
-        # image_group, annotations_group = train_generator.get_transformed_group(group)
-        image_group, annotations_group = train_generator.get_cropped_and_rotated_group(group)
-        image = image_group[0]
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        bboxes = annotations_group[0]['bboxes'].astype(np.int32)
-        for bbox in bboxes:
-            cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 1)
-        cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-        cv2.imshow('image', image)
-        cv2.waitKey(0)

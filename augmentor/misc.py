@@ -21,12 +21,10 @@ def rotate(image, boxes, prob=0.5, border_value=(128, 128, 128)):
     abs_sin_angle = np.abs(M[0, 1])
 
     # Compute the new bounding dimensions of the image.
-    # 画图可以得出这样的结论
     new_w = int(h * abs_sin_angle + w * abs_cos_angle)
     new_h = int(h * abs_cos_angle + w * abs_sin_angle)
 
     # Adjust the rotation matrix to take into account the translation.
-    # 中心点的偏移量作为所有像素的偏移量
     M[0, 2] += new_w // 2 - w // 2
     M[1, 2] += new_h // 2 - h // 2
 
@@ -109,7 +107,6 @@ def translate(image, boxes, prob=0.5, border_value=(128, 128, 128)):
     translation_matrix = change_transform_origin(translation_matrix, (w / 2, h / 2))
     image = cv2.warpAffine(
         image,
-        # warpAffine 只需要前面 2*3 的矩阵
         translation_matrix[:2, :],
         dsize=(w, h),
         flags=cv2.INTER_CUBIC,
