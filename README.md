@@ -28,7 +28,7 @@ Pretrained centernet model is here. [baidu netdisk](https://pan.baidu.com/s/1nZz
 * Append VOC2007 train.txt to VOC2012 trainval.txt.
 * Overwrite VOC2012 val.txt by VOC2007 val.txt.
 ### train
-* STEP1: `python3 train.py --freeze-backbone --gpu 0 --random-transform --compute-val-loss --batch-size 32 --steps 1000 pascal datasets/VOC2012` to start training. The init lr is 1e-3 and decays to 1e-4 when loss is stop dropping down.
-* STEP2: `python3 train.py --snapshot xxx.h5 --gpu 0 --random-transform --compute-val-loss --batch-size 32 --steps 1000 pascal datasets/VOC2012` to start training when val mAP can not increase during STEP1. The init lr is 1e-4 and decays to 1e-5 when loss is stop dropping down.
+* STEP1: `python3 train.py --freeze-backbone --gpu 0 --random-transform --compute-val-loss --batch-size 32 --steps 1000 pascal datasets/VOC2012` to start training. The init lr is 1e-3 and decays to 1e-4 when loss stops dropping down.
+* STEP2: `python3 train.py --snapshot xxx.h5 --gpu 0 --random-transform --compute-val-loss --batch-size 32 --steps 1000 pascal datasets/VOC2012` to start training when val mAP can not increase during STEP1. The init lr is 1e-4 and decays to 1e-5 when loss stops dropping down.
 ## Evaluate
 * `python3 eval/common.py` to evaluate by specifying model path there.
