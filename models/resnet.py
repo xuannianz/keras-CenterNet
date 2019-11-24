@@ -114,7 +114,7 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
               nms=True,
               flip_test=False,
               freeze_bn=True):
-    assert backbone in ['resnet18', 'resnet34', 'resnet50']
+    assert backbone in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
     output_size = input_size // 4
     image_input = Input(shape=(None, None, 3))
     hm_input = Input(shape=(output_size, output_size, num_classes))
@@ -127,9 +127,13 @@ def centernet(num_classes, backbone='resnet50', input_size=512, max_objects=100,
         resnet = resnet_models.ResNet18(image_input, include_top=False, freeze_bn=freeze_bn)
     elif backbone == 'resnet34':
         resnet = resnet_models.ResNet34(image_input, include_top=False, freeze_bn=freeze_bn)
-    else:
+    elif backbone == 'resnet50':
         resnet = resnet_models.ResNet50(image_input, include_top=False, freeze_bn=freeze_bn)
         # resnet = ResNet50(input_tensor=image_input, include_top=False)
+    elif backbone == 'resnet101':
+        resnet = resnet_models.ResNet101(image_input, include_top=False, freeze_bn=freeze_bn)
+    else:
+        resnet = resnet_models.ResNet152(image_input, include_top=False, freeze_bn=freeze_bn)
 
     # (b, 16, 16, 2048)
     C5 = resnet.outputs[-1]

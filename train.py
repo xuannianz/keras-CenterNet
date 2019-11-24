@@ -166,8 +166,8 @@ def create_generators(args):
         train_generator = CSVGenerator(
             args.annotations_path,
             args.classes_path,
-            transform_generator=transform_generator,
-            visual_effect_generator=visual_effect_generator,
+            misc_effect=misc_effect,
+            visual_effect=visual_effect,
             **common_args
         )
 
@@ -180,6 +180,23 @@ def create_generators(args):
             )
         else:
             validation_generator = None
+    elif args.dataset_type == 'coco':
+        from generators.coco import CocoGenerator
+
+        train_generator = CocoGenerator(
+            args.coco_path,
+            'train2017',
+            misc_effect=misc_effect,
+            visual_effect=visual_effect,
+            **common_args
+        )
+
+        validation_generator = CocoGenerator(
+            args.coco_path,
+            'val2017',
+            shuffle_groups=False,
+            **common_args
+        )
     else:
         raise ValueError('Invalid data type received: {}'.format(args.dataset_type))
 
