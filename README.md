@@ -32,3 +32,7 @@ Pretrained centernet model is here. [baidu netdisk](https://pan.baidu.com/s/1nZz
 * STEP2: `python3 train.py --snapshot xxx.h5 --gpu 0 --random-transform --compute-val-loss --batch-size 32 --steps 1000 pascal datasets/VOC2012` to start training when val mAP can not increase during STEP1. The init lr is 1e-4 and decays to 1e-5 when loss stops dropping down.
 ## Evaluate
 * `python3 eval/common.py` to evaluate by specifying model path there.
+
+## License
+This project is released under the Apache License. Some parts are borrowed from [fizyr/keras-retinanet](https://github.com/fizyr/keras-retinanet)
+and [xingyizhou/CenterNet](https://github.com/xingyizhou/CenterNet). Please take their licenses into consideration too when use this project.
