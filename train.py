@@ -132,6 +132,7 @@ def create_generators(args):
     common_args = {
         'batch_size': args.batch_size,
         'input_size': args.input_size,
+        'max_objects': args.max_detections,
     }
 
     # create random transform generator for augmenting training data
@@ -285,6 +286,8 @@ def parse_args(args):
     parser.add_argument('--workers', help='Number of generator workers.', type=int, default=1)
     parser.add_argument('--max-queue-size', help='Queue length for multiprocessing workers in fit_generator.', type=int,
                         default=10)
+    parser.add_argument('--max-detections', help='Max number of detections for each input.', type=int,
+                        default=100)
     print(vars(parser.parse_args(args)))
     return check_args(parser.parse_args(args))
 
@@ -306,7 +309,7 @@ def main(args=None):
 
     num_classes = train_generator.num_classes()
     model, prediction_model, debug_model = centernet(num_classes=num_classes, input_size=args.input_size,
-                                                     freeze_bn=True)
+                                                     freeze_bn=True, max_objects=args.max_detections)
 
     # create the model
     print('Loading model, this may take a second...')
